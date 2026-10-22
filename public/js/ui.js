@@ -1,0 +1,1 @@
+// Gestion du DOM, affichage des vies et du timer (Pôle 1)

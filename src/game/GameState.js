@@ -1,0 +1,1 @@
+// Module de fonctions pures pour la logique et les collisions (Pôle 3)
