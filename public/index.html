@@ -1,12 +1,30 @@
-<!-- Écrans d'accueil, lobby, et Scoreboard strict hors canvas (Pôle 1) -->
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#72b3cc">
+ <title>Grenoble Bomber · Accueil</title>
+
+ <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    
-</body>
-</html>
+<body><main class="game-screen screen-welcome">
+ <div class="landscape" aria-hidden="true"></div>
+ <div class="cableway" data-cableway aria-hidden="true"></div>
+ <header class="topbar"><a class="brand" href="index.html"><img data-ressource="bombes/fixes/06-bombe-ronde.png" alt=""><span>GRENOBLE<br>BOMBER</span></a><nav class="top-nav" aria-label="Navigation principale"><a href="classement.html">CLASSEMENT ↗</a></nav></header>
+ <section class="menu" aria-labelledby="game-title">
+  <h1 id="game-title" class="menu-heading"><span class="sr-only">Grenoble Bomber</span><img class="title-art" data-ressource="interface/titres/01-titre-accueil.png" alt="" width="768" height="258"></h1>
+  <p class="menu-kicker">ÇA VA FAIRE BOUM.</p>
+  <p class="intro">Choisis un pseudo. Garde une issue.</p>
+  <form id="join-form" class="nickname-form" novalidate>
+   <label for="nickname">TON PSEUDO DE LÉGENDE</label><div class="input-wrap"><input id="nickname" name="nickname" type="text" placeholder="Baguette.exe" maxlength="20" autocomplete="nickname" required aria-describedby="message"></div>
+   <button class="pixel-button" type="submit"><span>C’EST PARTI !</span><span class="button-arrow" aria-hidden="true">▶</span></button>
+  </form>
+  <button class="secondary-button" id="score-button" type="button"><span aria-hidden="true">★</span> LE TABLEAU DES HÉROS</button>
+  <p id="message" class="message" role="status" aria-live="polite"></p>
+  <p class="menu-footnote">UN PETIT JEU. UN GRAND BAZAR.<br>Prototype local · salon de jeu à connecter</p>
+ </section>
+ <div class="parade" data-parade="welcome" aria-hidden="true"></div>
+ <p class="screen-caption">GRENOBLE, FRANCE &nbsp; / &nbsp; <kbd>C</kbd> classement &nbsp; / &nbsp; attention aux cônes.</p>
+</main>
+
+<script src="js/ui.js"></script>
+</body></html>
