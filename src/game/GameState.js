@@ -1,535 +1,604 @@
-// Ce fichier décrit l'état du jeu et les règles de base appliquées côté
-// serveur. Le serveur reste la source de vérité pour tous les clients.
+'use strict';
 
-// ---------------------------------------------------------------------------
-// Configuration et modèles de données
-// ---------------------------------------------------------------------------
-//
-// Configuration utilisée quand aucune valeur personnalisée n'est fournie.
-// Elle est gelée pour éviter une modification accidentelle de ces valeurs
-// partagées.
-const DEFAULT_CONFIG = Object.freeze({
-  width: 13, // largeur de la grille
-  height: 11, // hauteur de la grille
-  maxPlayers: 4, // nombre maximum de joueurs
-  maxRounds: 3, // nombre de manches
-  bombFuseMs: 2500, // durée de vie d'une bombe avant explosion
-  flameDurationMs: 500, // durée de vie des flammes après explosion
-  moveIntervalMs: 140, // intervalle de temps entre deux déplacements d'un joueur
-  brickChance: 0.7, // probabilité qu'une case vide soit remplie par une brique
-  scorePerPlace: [5, 3, 2, 1], // points attribués selon l'ordre d'arrivée dans la manche
+/**
+ * GameState : les règles du jeu Bomberman (Pôle 3, logique côté serveur).
+ *
+ * Utilisation par le serveur temps réel (Pôle 5) :
+ *
+ *   let state = createGame({ seed: Date.now() });
+ *   state = addPlayer(state, { id: socket.id, name: 'Alice' });
+ *   state = startGame(state);
+ *   // à chaque message d'un client :
+ *   state = setInput(state, playerId, { direction: 'up' });
+ *   // à intervalle régulier (ex. toutes les 50 ms) :
+ *   state = tick(state, 50);
+ *   broadcast(state);
+ *   state = clearEvents(state);
+ *
+ */
+
+// ===========================================================================
+// Constantes et configuration
+// ===========================================================================
+
+// Ce que contient une case de la grille, du point de vue des règles.
+// Le dessin (bâtiment, arbre, cône...) est décrit à part dans state.objects.
+const TILE = Object.freeze({
+  EMPTY: 'empty', // rue praticable
+  WALL: 'wall', // bord de carte, bâtiment ou végétation : indestructible
+  OBSTACLE: 'obstacle', // cône ou poubelle : destructible
 });
 
-// Modèle utilisé pour créer un nouveau joueur. Les propriétés regroupent sa
-// position, son état de vie, ses actions récentes et ses caractéristiques.
-const DEFAULT_PLAYER_STATE = Object.freeze({
-  x: 0,
-  y: 0,
-  direction: null,
-  alive: true,
-  input: null,
-  lastMove: 0,
-  lastBombAt: 0,
-  bombsPlaced: 0,
-  score: 0,
-  nickname: "",
-
-  // Les statistiques évoluent pendant la partie, notamment grâce aux objets
-  // et augmentations ramassés par le joueur.
-  stats: Object.freeze({
-    health: 1,
-    maxHealth: 1,
-    speed: 1,
-    maxBombs: 1,
-    bombRadius: 2,
-    damage: 1,
-    luck: 0.2,
-    bombCooldown: 800,
-    items: [],
-    augmentations: [],
-  }),
+// Une partie passe par ces phases :
+// lobby -> playing
+const PHASE = Object.freeze({
+  LOBBY: 'lobby', // les joueurs rejoignent la partie
+  PLAYING: 'playing', // une manche est en cours
 });
 
-// Positions de départ des joueurs. Une coordonnée négative est calculée
-// depuis le bord opposé de la carte (par exemple -2 signifie avant-dernière
-// position utile).
-const SPAWNS = [
-  { x: 1, y: 1 },
-  { x: -2, y: 1 },
-  { x: 1, y: -2 },
-  { x: -2, y: -2 },
-];
-
-// Touches et noms de direction acceptés par le jeu. Plusieurs entrées
-// peuvent donc représenter le même déplacement.
 const DIRECTIONS = Object.freeze({
-  up: [0, -1],
-  down: [0, 1],
-  left: [-1, 0],
-  right: [1, 0],
-  ArrowUp: [0, -1],
-  ArrowDown: [0, 1],
-  ArrowLeft: [-1, 0],
-  ArrowRight: [1, 0],
-  z: [0, -1],
-  s: [0, 1],
-  q: [-1, 0],
-  d: [1, 0],
+  up: Object.freeze({ dx: 0, dy: -1 }),
+  down: Object.freeze({ dx: 0, dy: 1 }),
+  left: Object.freeze({ dx: -1, dy: 0 }),
+  right: Object.freeze({ dx: 1, dy: 0 }),
+});
+
+// Toutes les durées sont en millisecondes.
+const DEFAULT_CONFIG = Object.freeze({
+  width: 17, // largeur de la carte, bords compris (même format que l'aperçu du Pôle 2)
+  height: 11, // hauteur de la carte, bords compris
+  minPlayers: 2,
+  maxPlayers: 4,
+  baseMoveDelayMs: 200, // délai entre deux pas à la vitesse 1
+  minMoveDelayMs: 80, // limite la vitesse maximale
+  obstacleDensity: 0.5, // part des rues libres remplies de cônes et poubelles
+});
+
+// Statistiques d'un joueur sans aucun bonus.
+const BASE_STATS = Object.freeze({
+  speed: 1, // multiplicateur de vitesse de déplacement
 });
 
 // ---------------------------------------------------------------------------
-// Utilitaires et génération de carte
+// Éléments de décor (fichiers dans public/ressources/)
 // ---------------------------------------------------------------------------
+
+// Bâtiments : « columns × rows » est leur emprise au sol, en cases.
+// Le nom du fichier est « numero-lignesxcolonnes.png ».
+const BUILDINGS = Object.freeze({
+  house1: { columns: 1, rows: 1, sprite: 'batiments/logements/01-1x1.png' },
+  row2: { columns: 2, rows: 1, sprite: 'batiments/logements/02-1x2.png' },
+  row3: { columns: 3, rows: 1, sprite: 'batiments/logements/03-1x3.png' },
+  house2: { columns: 1, rows: 2, sprite: 'batiments/logements/04-2x1.png' },
+  row2Tall: { columns: 2, rows: 2, sprite: 'batiments/logements/05-2x2.png' },
+});
+
+// Commerces : variantes d'un bâtiment de même emprise, avec la devanture
+// déjà dessinée. Chaque commerce est placé au plus une fois par carte.
+const SHOPS = Object.freeze([
+  { id: 'market', building: 'row2', sprite: 'batiments/commerces/01-1x2.png' },
+  { id: 'fruit', building: 'row2', sprite: 'batiments/commerces/02-1x2.png' },
+  { id: 'fashion', building: 'row2Tall', sprite: 'batiments/commerces/03-2x2.png' },
+  { id: 'bakery', building: 'house1', sprite: 'batiments/commerces/04-1x1.png' },
+  { id: 'cafe', building: 'row3', sprite: 'batiments/commerces/05-1x3.png' },
+  { id: 'books', building: 'house2', sprite: 'batiments/commerces/06-2x1.png' },
+  { id: 'pharmacy', building: 'row2Tall', sprite: 'batiments/commerces/07-2x2.png' },
+  { id: 'flowers', building: 'house1', sprite: 'batiments/commerces/08-1x1.png' },
+]);
+
+const VEGETATION = Object.freeze({
+  tree: { sprite: 'obstacles/vegetation/02-arbre.png' },
+  shrub: { sprite: 'obstacles/vegetation/01-buisson.png' },
+});
+
+const DESTRUCTIBLES = Object.freeze({
+  cone: { sprite: 'obstacles/destructibles/03-cone.png' },
+  bin: { sprite: 'obstacles/destructibles/04-poubelle.png' },
+});
+
+// Éléments fixes placés sur chaque carte, dans cet ordre : d'abord un
+// bâtiment de chaque format, puis des doublons, puis la végétation.
+const FIXED_OBJECTS_TO_PLACE = Object.freeze([
+  'row2Tall', 'row3', 'row2', 'house2', 'house1',
+  'row2Tall', 'row2', 'house2', 'house1', 'house1',
+  'tree', 'tree', 'tree', 'shrub', 'shrub', 'shrub',
+]);
+
+// ===========================================================================
+// Utilitaires internes
+// ===========================================================================
+
+function clone(state) {
+  return structuredClone(state);
+}
+
+function samePosition(a, b) {
+  return a.x === b.x && a.y === b.y;
+}
+
+function getNeighbors({ x, y }) {
+  return Object.values(DIRECTIONS).map(({ dx, dy }) => ({ x: x + dx, y: y + dy }));
+}
+
+// Générateur pseudo-aléatoire « mulberry32 ». Il lit la graine du brouillon,
+// la fait avancer et retourne un nombre entre 0 (inclus) et 1 (exclu).
+function random(draft) {
+  draft.seed = (draft.seed + 0x6d2b79f5) | 0;
+  let t = draft.seed;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+function randomItem(draft, items) {
+  return items[Math.floor(random(draft) * items.length)];
+}
+
+// Mélange de Fisher-Yates : retourne une copie mélangée du tableau.
+function shuffle(draft, items) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random(draft) * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+// Identifiant unique pour les éléments de décor.
+function nextId(draft, prefix) {
+  const id = `${prefix}-${draft.nextEntityId}`;
+  draft.nextEntityId += 1;
+  return id;
+}
+
+function emit(draft, type, data = {}) {
+  draft.events.push({ type, time: draft.time, ...data });
+}
+
+// ===========================================================================
+// Lecture de l'état (fonctions pures, utilisables aussi par le serveur et les tests)
+// ===========================================================================
+
+function getPlayer(state, playerId) {
+  return state.players.find((player) => player.id === playerId);
+}
+
+// Une case hors de la carte est considérée comme un mur.
+function getTile(state, x, y) {
+  return state.map[y]?.[x] ?? TILE.WALL;
+}
+
+// Collision : on ne peut marcher que sur une case vide.
+// Les joueurs ne se bloquent pas entre eux.
+function isWalkable(state, x, y) {
+  return getTile(state, x, y) === TILE.EMPTY;
+}
+
+function getMoveDelay(config, stats) {
+  return Math.max(config.minMoveDelayMs, config.baseMoveDelayMs / stats.speed);
+}
+
+// Positions de départ : les quatre coins de la zone de jeu.
+function getSpawnPositions(config) {
+  const right = config.width - 2;
+  const bottom = config.height - 2;
+  return [
+    { x: 1, y: 1 },
+    { x: right, y: bottom },
+    { x: right, y: 1 },
+    { x: 1, y: bottom },
+  ];
+}
+
+// ===========================================================================
+// Génération de la carte
+// ===========================================================================
 //
-// Copie une valeur composée uniquement de données JSON.
-// Les fonctions qui modifient l'état peuvent ainsi retourner une nouvelle
-// version sans modifier l'état reçu en paramètre.
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
+// La carte est décrite deux fois :
+//  - state.map[y][x] : le type de chaque case (TILE), utilisé par les règles ;
+//  - state.objects : les éléments à dessiner. Chaque objet occupe le
+//    rectangle [x, x + width[ × [y, y + height[ (coin haut-gauche en x, y)
+//    et indique son image dans « sprite » (chemin dans public/ressources/).
+
+function isInPlayArea(config, { x, y }) {
+  return x > 0 && y > 0 && x < config.width - 1 && y < config.height - 1;
 }
 
-// Normalise le résultat du générateur aléatoire fourni par le jeu afin de
-// toujours obtenir une valeur exploitable comprise entre 0 et 1.
-function randomValue(random) {
-  const value = Number(random());
-  return Number.isFinite(value) ? Math.min(0.999999, Math.max(0, value)) : 0;
-}
-
-// Transforme une position en clé de texte, utilisable dans un Set pour tester
-// rapidement si une case est protégée.
-function key(x, y) {
-  return `${x},${y}`;
-}
-
-// Retourne le joueur vivant à la position donnée, ou undefined si aucun joueur n'est présent. 
-// L'identifiant du joueur à ignorer peut être fourni pour éviter de
-// détecter le joueur qui se déplace.
-function playerAt(state, x, y, ignoredId) {
-  return state.players.find(
-    (player) =>
-      player.alive &&
-      player.id !== ignoredId &&
-      player.x === x &&
-      player.y === y,
-  );
-}
-
-// Retourne true si la position est à l'intérieur de la carte, false sinon.
-function isInside(state, x, y) {
-  return x >= 0 && y >= 0 && x < state.config.width && y < state.config.height;
-}
-
-// Retourne la bombe à la position donnée, ou undefined si aucune bombe n'est présente.
-function bombAt(state, x, y) {
-  return state.bombs.find((bomb) => bomb.x === x && bomb.y === y);
-}
-
-// Retourne la bombe à la position donnée, ou undefined si aucune bombe n'est présente.
-function isWalkable(state, x, y, playerId) {
-  return (
-    isInside(state, x, y) &&
-    state.map[y][x] === null &&
-    !bombAt(state, x, y) &&
-    !playerAt(state, x, y, playerId)
-  );
-}
-
-// Construit une carte en quatre étapes : création des murs, calcul des points
-// de départ, protection des cases voisines, puis ajout aléatoire des briques.
-function createMap(config, random) {
-  // Une case contient "wall", "brick" ou null lorsqu'elle est libre.
-  const map = Array.from({ length: config.height }, (_, y) =>
-    Array.from({ length: config.width }, (_, x) => {
-      if (
-        x === 0 ||
-        y === 0 ||
-        x === config.width - 1 ||
-        y === config.height - 1
-      )
-        return "wall";
-      if (x % 2 === 0 && y % 2 === 0) return "wall";
-      return null;
-    }),
-  );
-
-  // Convertit les coordonnées éventuellement négatives en coordonnées
-  // adaptées aux dimensions réelles de la carte.
-  const spawns = SPAWNS.map((spawn) => ({
-    x: spawn.x < 0 ? config.width + spawn.x : spawn.x,
-    y: spawn.y < 0 ? config.height + spawn.y : spawn.y,
-  }));
-
-  // Chaque zone de départ conserve trois cases libres pour permettre au
-  // joueur de sortir sans être immédiatement bloqué par une brique.
-  const safe = new Set(
-    spawns.flatMap(({ x, y }) =>
-      [
-        [x, y],
-        [x + (x < config.width / 2 ? 1 : -1), y],
-        [x, y + (y < config.height / 2 ? 1 : -1)],
-      ].map(([sx, sy]) => key(sx, sy)),
-    ),
-  );
-
-  // Les bords et les murs intérieurs ont déjà été placés ; seules les cases
-  // libres qui ne sont pas protégées peuvent recevoir une brique.
+function getPlayAreaCells(config) {
+  const cells = [];
   for (let y = 1; y < config.height - 1; y += 1) {
-    for (let x = 1; x < config.width - 1; x += 1) {
-      if (
-        map[y][x] === null &&
-        !safe.has(key(x, y)) &&
-        randomValue(random) < config.brickChance
-      )
-        map[y][x] = "brick";
+    for (let x = 1; x < config.width - 1; x += 1) cells.push({ x, y });
+  }
+  return cells;
+}
+
+// Le point de départ et ses deux voisins vers l'intérieur restent libres
+// pour qu'un joueur ne soit jamais coincé dès le début.
+function getSafeCells(config) {
+  return getSpawnPositions(config).flatMap(({ x, y }) => [
+    { x, y },
+    { x: x === 1 ? 2 : x - 1, y },
+    { x, y: y === 1 ? 2 : y - 1 },
+  ]);
+}
+
+function getFootprint({ x, y }, columns, rows) {
+  const cells = [];
+  for (let dy = 0; dy < rows; dy += 1) {
+    for (let dx = 0; dx < columns; dx += 1) cells.push({ x: x + dx, y: y + dy });
+  }
+  return cells;
+}
+
+function setTiles(map, cells, tile) {
+  for (const { x, y } of cells) map[y][x] = tile;
+}
+
+// Un mur dans la zone de jeu est forcément un élément fixe (bâtiment, arbre...).
+function isFixedObjectCell(map, config, cell) {
+  return isInPlayArea(config, cell) && map[cell.y][cell.x] === TILE.WALL;
+}
+
+// Vérifie que toutes les rues libres restent reliées entre elles, par un
+// parcours en largeur depuis le premier point de départ.
+function areStreetsConnected(map, config) {
+  const start = getSpawnPositions(config)[0];
+  const seen = new Set([`${start.x},${start.y}`]);
+  const queue = [start];
+
+  for (let i = 0; i < queue.length; i += 1) {
+    for (const next of getNeighbors(queue[i])) {
+      const key = `${next.x},${next.y}`;
+      if (seen.has(key) || map[next.y][next.x] !== TILE.EMPTY) continue;
+      seen.add(key);
+      queue.push(next);
     }
   }
 
-  return { map, spawns };
+  const streetCount = getPlayAreaCells(config).filter(({ x, y }) => map[y][x] === TILE.EMPTY).length;
+  return seen.size === streetCount;
 }
 
-// ---------------------------------------------------------------------------
-// Création et gestion des joueurs
-// ---------------------------------------------------------------------------
+// Un élément fixe se place sur des rues libres, hors des zones de départ,
+// avec au moins une case d'écart avec les autres éléments fixes.
+function canPlaceFixedObject(map, config, footprint, safeCells) {
+  return footprint.every(
+    (cell) =>
+      isInPlayArea(config, cell) &&
+      map[cell.y][cell.x] === TILE.EMPTY &&
+      !safeCells.some((safe) => samePosition(safe, cell)) &&
+      !getNeighbors(cell).some((neighbor) => isFixedObjectCell(map, config, neighbor)),
+  );
+}
 
-// Crée l'état initial complet d'une partie. Les options sont utiles pour
-// fournir une configuration, une carte, des spawns ou un hasard contrôlé
-// (notamment dans les tests).
-function createGameState(options = {}) {
-  // Les options remplacent uniquement les valeurs qu'elles précisent.
-  const config = { ...DEFAULT_CONFIG, ...(options.config || {}) };
-  const random = options.random || Math.random;
-  const generated = createMap(config, random);
+// Essaie les cases dans un ordre aléatoire et garde la première position
+// qui ne coupe aucune rue. Si aucune ne convient, l'élément est ignoré.
+function placeFixedObject(draft, map, objects, kind, safeCells) {
+  const { config } = draft;
+  const building = BUILDINGS[kind];
+  const category = building ? 'building' : 'vegetation';
+  const columns = building?.columns ?? 1;
+  const rows = building?.rows ?? 1;
+
+  for (const cell of shuffle(draft, getPlayAreaCells(config))) {
+    const footprint = getFootprint(cell, columns, rows);
+    if (!canPlaceFixedObject(map, config, footprint, safeCells)) continue;
+
+    setTiles(map, footprint, TILE.WALL);
+    if (areStreetsConnected(map, config)) {
+      const sprite = (building ?? VEGETATION[kind]).sprite;
+      objects.push(createObject(draft, { kind, category, ...cell, width: columns, height: rows, sprite }));
+      return;
+    }
+    setTiles(map, footprint, TILE.EMPTY);
+  }
+}
+
+// Transforme certains bâtiments en commerces de même emprise.
+function assignShops(draft, objects) {
+  const buildings = shuffle(draft, objects.filter((object) => object.category === 'building'));
+  for (const shop of shuffle(draft, SHOPS)) {
+    const building = buildings.find((item) => item.kind === shop.building && !item.shop);
+    if (!building) continue;
+    building.shop = shop.id;
+    building.sprite = shop.sprite;
+  }
+}
+
+// Remplit une partie des rues de cônes et de poubelles. On évite la case
+// juste au-dessus d'un élément fixe, cachée par son toit.
+function placeObstacles(draft, map, objects, safeCells) {
+  const { config } = draft;
+  const isFree = ({ x, y }) => map[y][x] === TILE.EMPTY;
+  const isHiddenByRoof = ({ x, y }) => isFixedObjectCell(map, config, { x, y: y + 1 });
+  const isSafe = (cell) => safeCells.some((safe) => samePosition(safe, cell));
+
+  const candidates = getPlayAreaCells(config).filter(
+    (cell) => isFree(cell) && !isSafe(cell) && !isHiddenByRoof(cell),
+  );
+  const count = Math.round(candidates.length * config.obstacleDensity);
+
+  for (const cell of shuffle(draft, candidates).slice(0, count)) {
+    const kind = randomItem(draft, Object.keys(DESTRUCTIBLES));
+    map[cell.y][cell.x] = TILE.OBSTACLE;
+    objects.push(createObstacleObject(draft, kind, cell));
+  }
+}
+
+function createObject(draft, fields) {
+  return { id: nextId(draft, 'object'), destructible: false, shop: null, ...fields };
+}
+
+function createObstacleObject(draft, kind, { x, y }) {
+  return createObject(draft, {
+    kind,
+    category: 'obstacle',
+    x,
+    y,
+    width: 1,
+    height: 1,
+    destructible: true,
+    sprite: DESTRUCTIBLES[kind].sprite,
+  });
+}
+
+// Carte aléatoire : bords, éléments fixes, commerces, puis obstacles.
+function generateMap(draft) {
+  const { config } = draft;
+  const map = Array.from({ length: config.height }, (_, y) =>
+    Array.from({ length: config.width }, (_, x) =>
+      isInPlayArea(config, { x, y }) ? TILE.EMPTY : TILE.WALL,
+    ),
+  );
+  const objects = [];
+  const safeCells = getSafeCells(config);
+
+  for (const kind of FIXED_OBJECTS_TO_PLACE) placeFixedObject(draft, map, objects, kind, safeCells);
+  assignShops(draft, objects);
+  placeObstacles(draft, map, objects, safeCells);
+
+  return { map, objects };
+}
+
+// Transforme un plan texte en carte : '#' mur, 'o' obstacle, '.' rue.
+// Pratique pour écrire des cartes précises dans les tests.
+function parseLayout(draft) {
+  const tiles = { '#': TILE.WALL, o: TILE.OBSTACLE, '.': TILE.EMPTY };
+  const map = draft.layout.map((row) => [...row].map((char) => tiles[char] ?? TILE.EMPTY));
+  const objects = [];
+
+  map.forEach((row, y) =>
+    row.forEach((tile, x) => {
+      if (tile === TILE.OBSTACLE) objects.push(createObstacleObject(draft, 'cone', { x, y }));
+    }),
+  );
+  return { map, objects };
+}
+
+function createMap(draft) {
+  return draft.layout ? parseLayout(draft) : generateMap(draft);
+}
+
+// ===========================================================================
+// Création de la partie et gestion des joueurs
+// ===========================================================================
+
+/**
+ * Crée une partie vide, en phase « lobby ».
+ * @param {object} [options]
+ * @param {number} [options.seed] graine du hasard (ex. Date.now() côté serveur, fixe dans les tests)
+ * @param {object} [options.config] valeurs qui remplacent DEFAULT_CONFIG
+ * @param {string[]} [options.layout] carte fixe au format texte (voir parseLayout)
+ */
+function createGame({ seed = 1, config = {}, layout = null } = {}) {
+  const fullConfig = { ...DEFAULT_CONFIG, ...config };
+  if (layout) {
+    fullConfig.width = layout[0].length;
+    fullConfig.height = layout.length;
+  }
+
   return {
-    config,
-    // Les données fournies par l'appelant sont copiées pour éviter qu'une
-    // modification ultérieure ne change l'état de cette partie.
-    map: options.map ? clone(options.map) : generated.map,
-    spawns: options.spawns ? clone(options.spawns) : generated.spawns,
-    // Ces tableaux seront remplis au fil de la partie.
+    config: fullConfig,
+    layout,
+    seed,
+    phase: PHASE.LOBBY,
+    time: 0, // temps écoulé depuis la création de la partie
+    round: 0,
+    map: [],
+    objects: [], // décor à dessiner (bâtiments, végétation, obstacles)
     players: [],
-    bombs: [],
-    flames: [],
-    pickups: [],
-    deathOrder: [],
-    // Temps écoulé depuis le début de la partie, en millisecondes.
-    time: 0,
-    round: 1,
-    maxRounds: config.maxRounds,
-    roundsWon: 0,
-    // La partie commence dans le lobby et passe à "playing" quand elle est
-    // suffisamment remplie.
-    phase: "lobby",
-    winner: null,
-    scoreboard: [],
+    nextEntityId: 1,
+    events: [], // ce qui s'est passé depuis le dernier clearEvents (sons, animations...)
   };
 }
 
-// Ajoute un joueur et retourne un nouvel état, sans modifier l'ancien.
-// Une demande invalide ou une partie pleine retourne l'état original.
-function joinPlayer(state, details = {}) {
-  const id = String(details.id);
-
-  if (
-    !id ||
-    state.players.some((player) => player.id === id) ||
-    state.players.length >= state.config.maxPlayers
-  )
-    return state;
-  // La copie protège l'état précédent, ce qui facilite la synchronisation
-  // serveur/client et rend les changements plus prévisibles.
-  const next = clone(state);
-  const position = next.spawns[next.players.length];
-  next.players.push({
-    // Chaque joueur reçoit ses propres valeurs et ne partage pas les
-    // statistiques du modèle avec les autres joueurs.
-    ...clone(DEFAULT_PLAYER_STATE),
-    id: String(details.id),
-    nickname: String(details.nickname || `Player ${next.players.length + 1}`),
-    ...position,
-    stats: clone(DEFAULT_PLAYER_STATE.stats),
-  });
-  // Lorsque le nombre maximal de joueurs est atteint, la partie démarre.
-  if (next.players.length === next.config.maxPlayers) next.phase = "playing";
-  return next;
+function createPlayer(id, name) {
+  return {
+    id,
+    name,
+    connected: true,
+    alive: false,
+    x: 0,
+    y: 0,
+    facing: 'down',
+    stats: { ...BASE_STATS },
+    nextMoveAt: 0,
+    input: { direction: null },
+  };
 }
 
-// Met à jour l'entrée d'un joueur et retourne un nouvel état. Si le joueur
-// n'existe pas, l'état original est retourné.
-function setPlayerInput(state, playerId, input = {}) {
-  if (!state.players.some((player) => player.id === playerId)) return state;
+function addPlayer(state, { id, name } = {}) {
+  const canJoin =
+    state.phase === PHASE.LOBBY &&
+    typeof id === 'string' &&
+    id !== '' &&
+    !getPlayer(state, id) &&
+    state.players.length < state.config.maxPlayers;
+  if (!canJoin) return state;
 
-  const next = clone(state);
-  const player = next.players.find((item) => item.id === playerId);
-  player.input =
-    typeof input === "string" ? { direction: input } : { ...input };
-
-  return next;
+  const draft = clone(state);
+  draft.players.push(createPlayer(id, name || `Joueur ${draft.players.length + 1}`));
+  return draft;
 }
 
-// ---------------------------------------------------------------------------
-// Actions de jeu
-// ---------------------------------------------------------------------------
+// Dans le lobby, le joueur est retiré. Pendant la partie, il est gardé
+// mais marqué déconnecté et retiré du jeu.
+function removePlayer(state, playerId) {
+  if (!getPlayer(state, playerId)) return state;
+  const draft = clone(state);
 
-// Déplace les joueurs selon leur entrée et retourne un nouvel état. Les joueurs
-// ne peuvent pas se déplacer plus vite que l'intervalle défini dans la
-// configuration.
-function movePlayers(state) {
-  const next = clone(state);
-
-  for (const player of next.players) {
-    if (
-      !player.alive ||
-      !player.input ||
-      next.time - player.lastMove < next.config.moveIntervalMs
-    )
-      continue;
-    const direction = DIRECTIONS[player.input.direction || player.input.key];
-
-    if (!direction) continue;
-
-    const [dx, dy] = direction;
-
-    if (isWalkable(next, player.x + dx, player.y + dy, player.id)) {
-      player.x += dx;
-      player.y += dy;
-    }
-
-    player.lastMove = next.time;
+  if (draft.phase === PHASE.LOBBY) {
+    draft.players = draft.players.filter((player) => player.id !== playerId);
+    return draft;
   }
 
-  return next;
+  const player = getPlayer(draft, playerId);
+  player.connected = false;
+  player.alive = false;
+  emit(draft, 'playerLeft', { playerId });
+  return draft;
 }
 
-// Place une bombe si le joueur est autorisé à le faire et retourne un nouvel état.
-function placeBomb(state, playerId) {
-  const next = clone(state);
-  const player = next.players.find((item) => item.id === playerId);
-
-  if (
-    !player ||
-    !player.alive ||
-    next.phase !== "playing" ||
-    bombAt(next, player.x, player.y) ||
-    next.bombs.filter((bomb) => bomb.ownerId === playerId).length >=
-      player.stats.maxBombs ||
-    next.time - (player.lastBombAt || -Infinity) < player.stats.bombCooldown
-  )
-    return state;
-  next.bombs.push({
-    id: `${playerId}:${next.time}:${next.bombs.length}`,
-    ownerId: playerId,
-    x: player.x,
-    y: player.y,
-    explodeAt: next.time + next.config.bombFuseMs,
-    radius: player.stats.bombRadius,
-    damage: player.stats.damage,
-  });
-
-  player.lastBombAt = next.time;
-  player.bombsPlaced += 1;
-
-  return next;
+function startGame(state) {
+  if (state.phase !== PHASE.LOBBY || state.players.length < state.config.minPlayers) return state;
+  const draft = clone(state);
+  startRound(draft);
+  return draft;
 }
 
-// Déclenche l'explosion d'une bombe et de toutes les bombes en chaîne, puis
-// applique les dégâts aux joueurs touchés. Les briques détruites peuvent
-// générer des objets selon la chance du joueur qui a placé la bombe.
-function explodeBomb(state, bomb, random) {
-  const next = state;
-  const pending = [bomb];
-  const exploded = new Set();
+/**
+ * Enregistre l'intention d'un joueur. Elle sera appliquée au prochain tick.
+ * @param {object} input
+ * @param {'up'|'down'|'left'|'right'|null} [input.direction] direction maintenue, null pour s'arrêter
+ */
+function setInput(state, playerId, input = {}) {
+  const player = getPlayer(state, playerId);
+  if (state.phase !== PHASE.PLAYING || !player || !player.alive) return state;
 
-  while (pending.length) {
-    const current = pending.shift();
+  const draft = clone(state);
+  const draftPlayer = getPlayer(draft, playerId);
 
-    if (exploded.has(current.id)) continue;
-
-    exploded.add(current.id);
-    next.bombs = next.bombs.filter(item => item.id !== current.id);
-    const cells = [[current.x, current.y]];
-
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      for (let distance = 1; distance <= current.radius; distance += 1) {
-        const x = current.x + dx * distance;
-        const y = current.y + dy * distance;
-
-        if (!isInside(next, x, y) || next.map[y][x] === 'wall') break;
-
-        cells.push([x, y]);
-        const chained = bombAt(next, x, y);
-
-        if (chained) pending.push(chained);
-
-        if (next.map[y][x] === "brick") {
-          next.map[y][x] = null;
-
-          if (randomValue(random) < 0.35 + (current.luck || 0)) {
-            const types = Object.keys(UPGRADES);
-            next.pickups.push({
-              x,
-              y,
-              type: types[Math.floor(randomValue(random) * types.length)],
-            });
-          }
-          break;
-        }
-      }
-    }
-    for (const [x, y] of cells) {
-      next.flames.push({ x, y, expiresAt: next.time + next.config.flameDurationMs });
-
-      for (const player of next.players) {
-        if (player.alive && player.x === x && player.y === y) {
-          player.stats.health -= current.damage;
-
-          if (player.stats.health <= 0) {
-            player.alive = false;
-            player.deaths = (player.deaths || 0) + 1;
-            next.deathOrder.push(player.id);
-          }
-        }
-      }
-    }
+  if ('direction' in input) {
+    draftPlayer.input.direction = DIRECTIONS[input.direction] ? input.direction : null;
   }
+  return draft;
 }
 
-// ---------------------------------------------------------------------------
-// Progression des manches et boucle de simulation
-// ---------------------------------------------------------------------------
-
-// Termine la manche en cours et retourne un nouvel état. Si la partie est
-// terminée, le nouvel état contient le classement final.
-function finishRound(state) {
-  const alive = state.players.filter((player) => player.alive);
-
-  if (
-    alive.length > 1 ||
-    state.players.filter((player) => player.alive || player.deaths).length <= 1
-  )
-    return state;
-
-  const next = clone(state);
-  const winner = alive[0] || next.players.find((player) => player.alive);
-
-  if (winner) {
-    winner.score += 5;
-    next.roundsWon += 1;
-    next.winner = winner.id;
-  }
-  [...next.deathOrder].reverse().forEach((playerId, index) => {
-    const player = next.players.find((item) => item.id === playerId);
-    if (player) player.score += Math.max(1, 3 - index);
-  });
-
-  if (next.round >= next.maxRounds) {
-    next.phase = "game_over";
-    next.scoreboard = next.players
-      .slice()
-      .sort((a, b) => b.score - a.score)
-      .map(({ id, nickname, score }) => ({ id, nickname, score }));
-  } else {
-    next.phase = "round_over";
-  }
-
-  return next;
+// Les événements sont conservés jusqu'à ce que le serveur les ait diffusés.
+function clearEvents(state) {
+  if (state.events.length === 0) return state;
+  return { ...state, events: [] };
 }
 
-// Met à jour l'état du jeu en fonction du temps écoulé et retourne un nouvel état.
-function tick(state, elapsedMs = 0, options = {}) {
-  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return state;
+// ===========================================================================
+// Manches
+// ===========================================================================
 
-  let next = clone(state);
-  next.time += elapsedMs;
+function startRound(draft) {
+  draft.round += 1;
+  draft.phase = PHASE.PLAYING;
+  const { map, objects } = createMap(draft);
+  draft.map = map;
+  draft.objects = objects;
 
-  if (next.phase !== "playing") return next;
-
-  next = movePlayers(next);
-  const random = options.random || Math.random;
-
-  for (const bomb of next.bombs.slice()) {
-    if (bomb.explodeAt <= next.time) explodeBomb(next, bomb, random);
-  }
-
-  next.flames = next.flames.filter((flame) => flame.expiresAt > next.time);
-
-  for (const player of next.players) {
-    const pickup = next.pickups.find(
-      (item) => item.x === player.x && item.y === player.y,
-    );
-    if (player.alive && pickup) {
-      const upgrade = UPGRADES[pickup.type];
-      player.stats[upgrade.stat] = Math.max(
-        0,
-        player.stats[upgrade.stat] + upgrade.amount,
-      );
-      if (upgrade.stat === "maxHealth") player.stats.health += upgrade.amount;
-      next.pickups = next.pickups.filter((item) => item !== pickup);
-    }
-  }
-
-  return finishRound(next);
-}
-
-// Applique l'augmentation choisie par le joueur et retourne un nouvel état.
-// Chaque joueur peut choisir une augmentation entre deux manches qu'il gardera pour tout les prochains rounds.
-function chooseUpgrade(state, playerId, type) {
-  const upgrade = UPGRADES[type];
-
-  if (!upgrade || state.phase !== "round_over") return state;
-
-  const next = clone(state);
-  const player = next.players.find((item) => item.id === playerId);
-
-  if (!player || player.upgradeChosen) return state;
-
-  player.stats[upgrade.stat] = Math.max(
-    0,
-    player.stats[upgrade.stat] + upgrade.amount,
-  );
-  player.upgradeChosen = true;
-
-  if (next.players.every((item) => !item.alive || item.upgradeChosen)) {
-    next.round += 1;
-    next.phase = "playing";
-    next.winner = null;
-    next.bombs = [];
-    next.flames = [];
-    next.pickups = [];
-    next.deathOrder = [];
-
-    next.players.forEach((item, index) => {
-      const spawn = next.spawns[index];
-      Object.assign(item, spawn, {
-        alive: true,
-        upgradeChosen: false,
-        lastMove: next.time,
-      });
-      item.stats.health = item.stats.maxHealth;
+  const spawns = getSpawnPositions(draft.config);
+  draft.players.forEach((player, index) => {
+    Object.assign(player, spawns[index], {
+      alive: player.connected,
+      facing: 'down',
+      stats: { ...BASE_STATS },
+      nextMoveAt: draft.time,
+      input: { direction: null },
     });
-  }
+  });
 
-  return next;
+  emit(draft, 'roundStarted', { round: draft.round });
 }
 
-// Applique une action reçue par le serveur et retourne un nouvel état. Les
-// actions sont envoyées par les clients et peuvent être invalides ou malveillantes.
+// ===========================================================================
+// Simulation d'une manche (appelée à chaque tick)
+// ===========================================================================
+
+/**
+ * Fait avancer la manche de deltaMs millisecondes.
+ * Pour l'instant, une étape ne fait que déplacer les joueurs.
+ */
+function tick(state, deltaMs) {
+  if (state.phase !== PHASE.PLAYING || !(deltaMs >= 0)) return state;
+
+  const draft = clone(state);
+  draft.time += deltaMs;
+
+  movePlayers(draft);
+
+  return draft;
+}
+
+// Le joueur avance d'une case dans la direction maintenue, si la case est
+// libre et si son délai de déplacement (lié à sa vitesse) est écoulé.
+function movePlayers(draft) {
+  for (const player of draft.players) {
+    const direction = DIRECTIONS[player.input.direction];
+    if (!player.alive || !direction) continue;
+
+    player.facing = player.input.direction;
+    if (draft.time < player.nextMoveAt) continue;
+
+    const target = { x: player.x + direction.dx, y: player.y + direction.dy };
+    if (!isWalkable(draft, target.x, target.y)) continue;
+
+    player.x = target.x;
+    player.y = target.y;
+    player.nextMoveAt = draft.time + getMoveDelay(draft.config, player.stats);
+  }
+}
+
+// ===========================================================================
+// Point d'entrée unique pour le serveur
+// ===========================================================================
+
+// Applique une action reçue sous forme d'objet. Les actions viennent des
+// clients et peuvent être invalides : dans ce cas, l'état est inchangé.
 function applyAction(state, action = {}) {
   switch (action.type) {
-    case "join":
-      return joinPlayer(state, action.player || action);
-    case "input":
-      return setPlayerInput(state, action.playerId, action.input);
-    case "place_bomb":
-      return placeBomb(state, action.playerId);
-    case "tick":
-      return tick(state, action.deltaMs, action);
-    case "choose_upgrade":
-      return chooseUpgrade(state, action.playerId, action.upgrade);
-    case "start":
-      return state.players.length
-        ? { ...clone(state), phase: "playing" }
-        : state;
+    case 'join':
+      return addPlayer(state, { id: action.playerId, name: action.name });
+    case 'leave':
+      return removePlayer(state, action.playerId);
+    case 'start':
+      return startGame(state);
+    case 'input':
+      return setInput(state, action.playerId, action.input);
+    case 'tick':
+      return tick(state, action.deltaMs);
     default:
       return state;
   }
 }
+
+module.exports = {
+  // constantes
+  TILE,
+  PHASE,
+  DIRECTIONS,
+  DEFAULT_CONFIG,
+  BASE_STATS,
+  BUILDINGS,
+  SHOPS,
+  VEGETATION,
+  DESTRUCTIBLES,
+  // actions (retournent un nouvel état)
+  createGame,
+  addPlayer,
+  removePlayer,
+  startGame,
+  setInput,
+  tick,
+  clearEvents,
+  applyAction,
+  // lecture de l'état
+  getPlayer,
+  getTile,
+  isWalkable,
+  getSpawnPositions,
+};
