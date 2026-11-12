@@ -5,11 +5,11 @@
  *
  * Utilisation par le serveur temps réel (Pôle 5) :
  *
- *   let state = createGame({ seed: Date.now() });
+ *   let state = createGame({ seed: Date.now(), config: { totalRounds: 5 } });
  *   state = addPlayer(state, { id: socket.id, name: 'Alice' });
  *   state = startGame(state);
  *   // à chaque message d'un client :
- *   state = setInput(state, playerId, { direction: 'up' });
+ *   state = setInput(state, playerId, { direction: 'up', bomb: true });
  *   // à intervalle régulier (ex. toutes les 50 ms) :
  *   state = tick(state, 50);
  *   broadcast(state);
@@ -26,14 +26,15 @@
 const TILE = Object.freeze({
   EMPTY: 'empty', // rue praticable
   WALL: 'wall', // bord de carte, bâtiment ou végétation : indestructible
-  OBSTACLE: 'obstacle', // cône ou poubelle : destructible
+  OBSTACLE: 'obstacle', // cône ou poubelle : détruit par les explosions
 });
 
 // Une partie passe par ces phases :
-// lobby -> playing
+// lobby -> playing (manche 1) -> playing (manche 2) -> ... -> gameOver
 const PHASE = Object.freeze({
   LOBBY: 'lobby', // les joueurs rejoignent la partie
   PLAYING: 'playing', // une manche est en cours
+  GAME_OVER: 'gameOver', // toutes les manches sont jouées, le meilleur score gagne
 });
 
 const DIRECTIONS = Object.freeze({
@@ -49,14 +50,26 @@ const DEFAULT_CONFIG = Object.freeze({
   height: 11, // hauteur de la carte, bords compris
   minPlayers: 2,
   maxPlayers: 4,
+  totalRounds: 3, // nombre de manches de la partie, choisi à la création
+  victoryBonus: 1, // point en plus pour le dernier survivant d'une manche
+  roundDurationMs: 180000, // au-delà, la manche est déclarée nulle
+  bombFuseMs: 2500, // délai avant qu'une bombe explose
+  flameDurationMs: 500, // durée pendant laquelle les flammes restent dangereuses
   baseMoveDelayMs: 200, // délai entre deux pas à la vitesse 1
   minMoveDelayMs: 80, // limite la vitesse maximale
+  invincibilityMs: 1000, // protection après avoir perdu un coeur
   obstacleDensity: 0.5, // part des rues libres remplies de cônes et poubelles
+  powerUpDropChance: 0.3, // probabilité qu'un obstacle détruit libère un bonus
 });
 
 // Statistiques d'un joueur sans aucun bonus.
 const BASE_STATS = Object.freeze({
+  maxHearts: 2, // coeurs au début de chaque manche
   speed: 1, // multiplicateur de vitesse de déplacement
+  maxBombs: 1, // nombre de bombes posées en même temps
+  bombRange: 2, // portée des flammes, en cases
+  fuseMultiplier: 1, // multiplie la durée de la mèche
+  piercing: false, // les flammes traversent les obstacles
 });
 
 // ---------------------------------------------------------------------------
@@ -104,6 +117,23 @@ const FIXED_OBJECTS_TO_PLACE = Object.freeze([
   'tree', 'tree', 'tree', 'shrub', 'shrub', 'shrub',
 ]);
 
+// ---------------------------------------------------------------------------
+// Bonus
+// ---------------------------------------------------------------------------
+
+function withStats(player, changes) {
+  return { ...player, stats: { ...player.stats, ...changes } };
+}
+
+// Bonus ramassés sur la carte. Ils ne durent que pendant la manche en cours.
+// apply(joueur) retourne le joueur modifié.
+const POWER_UPS = Object.freeze({
+  bombUp: { name: 'Bombe +1', apply: (p) => withStats(p, { maxBombs: p.stats.maxBombs + 1 }) },
+  fireUp: { name: 'Flamme +1', apply: (p) => withStats(p, { bombRange: p.stats.bombRange + 1 }) },
+  speedUp: { name: 'Vitesse +', apply: (p) => withStats(p, { speed: p.stats.speed + 0.2 }) },
+  heart: { name: 'Coeur', apply: (p) => ({ ...p, hearts: Math.min(p.hearts + 1, p.stats.maxHearts) }) },
+});
+
 // ===========================================================================
 // Utilitaires internes
 // ===========================================================================
@@ -144,7 +174,7 @@ function shuffle(draft, items) {
   return result;
 }
 
-// Identifiant unique pour les éléments de décor.
+// Identifiant unique pour les bombes, bonus et éléments de décor.
 function nextId(draft, prefix) {
   const id = `${prefix}-${draft.nextEntityId}`;
   draft.nextEntityId += 1;
@@ -168,10 +198,43 @@ function getTile(state, x, y) {
   return state.map[y]?.[x] ?? TILE.WALL;
 }
 
-// Collision : on ne peut marcher que sur une case vide.
+function getBombAt(state, x, y) {
+  return state.bombs.find((bomb) => bomb.x === x && bomb.y === y);
+}
+
+function hasFlameAt(state, x, y) {
+  return state.flames.some((flame) => flame.x === x && flame.y === y);
+}
+
+// Collision : on ne peut marcher que sur une case vide sans bombe.
 // Les joueurs ne se bloquent pas entre eux.
 function isWalkable(state, x, y) {
-  return getTile(state, x, y) === TILE.EMPTY;
+  return getTile(state, x, y) === TILE.EMPTY && !getBombAt(state, x, y);
+}
+
+function countActiveBombs(state, playerId) {
+  return state.bombs.filter((bomb) => bomb.ownerId === playerId).length;
+}
+
+// Cases touchées par l'explosion d'une bombe : sa case, puis dans chaque
+// direction jusqu'à sa portée. Un mur arrête la flamme. Un obstacle est
+// touché mais arrête aussi la flamme, sauf si la bombe est perforante.
+function getExplosionCells(state, bomb) {
+  const cells = [{ x: bomb.x, y: bomb.y }];
+
+  for (const { dx, dy } of Object.values(DIRECTIONS)) {
+    for (let step = 1; step <= bomb.range; step += 1) {
+      const x = bomb.x + dx * step;
+      const y = bomb.y + dy * step;
+      const tile = getTile(state, x, y);
+
+      if (tile === TILE.WALL) break;
+      cells.push({ x, y });
+      if (tile === TILE.OBSTACLE && !bomb.piercing) break;
+    }
+  }
+
+  return cells;
 }
 
 function getMoveDelay(config, stats) {
@@ -188,6 +251,43 @@ function getSpawnPositions(config) {
     { x: right, y: 1 },
     { x: 1, y: bottom },
   ];
+}
+
+// Classement général, du premier au dernier : score total, puis manches
+// gagnées, puis éliminations en cas d'égalité. À transmettre au Pôle 4
+// pour la sauvegarde MongoDB en fin de partie.
+function getResults(state) {
+  return state.players
+    .map((player) => ({
+      id: player.id,
+      name: player.name,
+      score: player.score,
+      roundWins: player.roundWins,
+      kills: player.kills,
+      deaths: player.deaths,
+      isWinner: player.id === state.winnerId,
+    }))
+    .sort((a, b) => b.score - a.score || b.roundWins - a.roundWins || b.kills - a.kills);
+}
+
+// Points d'une manche selon l'ordre d'élimination : le premier éliminé
+// marque 1 point, le deuxième 2, etc. Les joueurs éliminés au même instant
+// marquent autant de points. Les survivants marquent un point de plus que
+// le dernier éliminé, et le vainqueur (seul survivant) reçoit le bonus de victoire.
+// Exemple à 4 joueurs : 1, 2, 3 puis 4 + 1 = 5 points pour le vainqueur.
+function getRoundRanking(state, roundWinnerId) {
+  const participants = state.players.filter((player) => player.inRound);
+  const isEliminatedBefore = (other, player) =>
+    other.eliminatedAt !== null &&
+    (player.eliminatedAt === null || other.eliminatedAt < player.eliminatedAt);
+
+  return participants
+    .map((player) => {
+      const place = participants.filter((other) => isEliminatedBefore(other, player)).length + 1;
+      const bonus = player.id === roundWinnerId ? state.config.victoryBonus : 0;
+      return { playerId: player.id, points: place + bonus };
+    })
+    .sort((a, b) => b.points - a.points);
 }
 
 // ===========================================================================
@@ -404,9 +504,14 @@ function createGame({ seed = 1, config = {}, layout = null } = {}) {
     phase: PHASE.LOBBY,
     time: 0, // temps écoulé depuis la création de la partie
     round: 0,
+    roundEndsAt: null,
     map: [],
     objects: [], // décor à dessiner (bâtiments, végétation, obstacles)
     players: [],
+    bombs: [],
+    flames: [],
+    powerUps: [],
+    winnerId: null,
     nextEntityId: 1,
     events: [], // ce qui s'est passé depuis le dernier clearEvents (sons, animations...)
   };
@@ -422,8 +527,16 @@ function createPlayer(id, name) {
     y: 0,
     facing: 'down',
     stats: { ...BASE_STATS },
+    hearts: BASE_STATS.maxHearts, // coeurs restants pendant la manche
+    invincibleUntil: 0,
     nextMoveAt: 0,
-    input: { direction: null },
+    input: { direction: null, bomb: false },
+    inRound: false, // participe à la manche en cours
+    eliminatedAt: null, // instant de l'élimination pendant la manche
+    score: 0, // total des points de toutes les manches
+    roundWins: 0,
+    kills: 0,
+    deaths: 0,
   };
 }
 
@@ -441,8 +554,8 @@ function addPlayer(state, { id, name } = {}) {
   return draft;
 }
 
-// Dans le lobby, le joueur est retiré. Pendant la partie, il est gardé
-// mais marqué déconnecté et retiré du jeu.
+// Dans le lobby, le joueur est retiré. Pendant la partie, il est gardé pour
+// les résultats mais marqué déconnecté et éliminé.
 function removePlayer(state, playerId) {
   if (!getPlayer(state, playerId)) return state;
   const draft = clone(state);
@@ -452,10 +565,14 @@ function removePlayer(state, playerId) {
     return draft;
   }
 
+  // Quitter la manche compte comme une élimination à cet instant.
   const player = getPlayer(draft, playerId);
+  if (player.alive) player.eliminatedAt = draft.time;
   player.connected = false;
   player.alive = false;
   emit(draft, 'playerLeft', { playerId });
+
+  if (draft.phase === PHASE.PLAYING) checkRoundEnd(draft);
   return draft;
 }
 
@@ -470,6 +587,7 @@ function startGame(state) {
  * Enregistre l'intention d'un joueur. Elle sera appliquée au prochain tick.
  * @param {object} input
  * @param {'up'|'down'|'left'|'right'|null} [input.direction] direction maintenue, null pour s'arrêter
+ * @param {boolean} [input.bomb] true pour poser une bombe
  */
 function setInput(state, playerId, input = {}) {
   const player = getPlayer(state, playerId);
@@ -481,6 +599,10 @@ function setInput(state, playerId, input = {}) {
   if ('direction' in input) {
     draftPlayer.input.direction = DIRECTIONS[input.direction] ? input.direction : null;
   }
+  // Une demande de bombe reste en attente jusqu'au tick, même si un autre
+  // message arrive entre-temps.
+  if (input.bomb === true) draftPlayer.input.bomb = true;
+
   return draft;
 }
 
@@ -500,19 +622,63 @@ function startRound(draft) {
   const { map, objects } = createMap(draft);
   draft.map = map;
   draft.objects = objects;
+  draft.bombs = [];
+  draft.flames = [];
+  draft.powerUps = [];
+  draft.roundEndsAt = draft.time + draft.config.roundDurationMs;
 
   const spawns = getSpawnPositions(draft.config);
   draft.players.forEach((player, index) => {
+    const stats = { ...BASE_STATS };
     Object.assign(player, spawns[index], {
       alive: player.connected,
+      inRound: player.connected,
+      eliminatedAt: null,
       facing: 'down',
-      stats: { ...BASE_STATS },
+      stats,
+      hearts: stats.maxHearts,
+      invincibleUntil: 0,
       nextMoveAt: draft.time,
-      input: { direction: null },
+      input: { direction: null, bomb: false },
     });
   });
 
   emit(draft, 'roundStarted', { round: draft.round });
+}
+
+// Une manche se termine quand il reste au plus un survivant, ou quand le
+// temps est écoulé (match nul s'il reste plusieurs survivants).
+function checkRoundEnd(draft) {
+  const survivors = draft.players.filter((player) => player.alive);
+  const isTimeUp = draft.time >= draft.roundEndsAt;
+  if (survivors.length > 1 && !isTimeUp) return;
+
+  const roundWinner = survivors.length === 1 ? survivors[0] : null;
+  endRound(draft, roundWinner);
+}
+
+// Distribue les points de la manche, puis lance la manche suivante ou termine la
+// partie si c'était la dernière manche (ou s'il ne reste qu'un joueur connecté).
+function endRound(draft, roundWinner) {
+  const winnerId = roundWinner?.id ?? null;
+  const ranking = getRoundRanking(draft, winnerId);
+  for (const { playerId, points } of ranking) getPlayer(draft, playerId).score += points;
+  if (roundWinner) roundWinner.roundWins += 1;
+  draft.bombs = [];
+  emit(draft, 'roundEnded', { round: draft.round, winnerId, ranking });
+
+  const connected = draft.players.filter((player) => player.connected);
+  const isLastRound = draft.round >= draft.config.totalRounds;
+  const notEnoughPlayers = connected.length < 2;
+
+  if (isLastRound || notEnoughPlayers) {
+    draft.phase = PHASE.GAME_OVER;
+    draft.winnerId = getResults(draft)[0]?.id ?? null;
+    emit(draft, 'gameOver', { winnerId: draft.winnerId, results: getResults(draft) });
+    return;
+  }
+
+  startRound(draft);
 }
 
 // ===========================================================================
@@ -521,7 +687,8 @@ function startRound(draft) {
 
 /**
  * Fait avancer la manche de deltaMs millisecondes.
- * Pour l'instant, une étape ne fait que déplacer les joueurs.
+ * Ordre d'une étape : bombes demandées, déplacements, ramassage des bonus,
+ * explosions, extinction des flammes, dégâts, fin de manche.
  */
 function tick(state, deltaMs) {
   if (state.phase !== PHASE.PLAYING || !(deltaMs >= 0)) return state;
@@ -529,13 +696,46 @@ function tick(state, deltaMs) {
   const draft = clone(state);
   draft.time += deltaMs;
 
+  placeRequestedBombs(draft);
   movePlayers(draft);
+  collectPowerUps(draft);
+  explodeDueBombs(draft);
+  removeExpiredFlames(draft);
+  damagePlayersInFlames(draft);
+  checkRoundEnd(draft);
 
   return draft;
 }
 
+function placeRequestedBombs(draft) {
+  for (const player of draft.players) {
+    if (!player.input.bomb) continue;
+    player.input.bomb = false;
+
+    const canPlace =
+      player.alive &&
+      !getBombAt(draft, player.x, player.y) &&
+      countActiveBombs(draft, player.id) < player.stats.maxBombs;
+    if (!canPlace) continue;
+
+    const bomb = {
+      id: nextId(draft, 'bomb'),
+      ownerId: player.id,
+      x: player.x,
+      y: player.y,
+      range: player.stats.bombRange,
+      piercing: player.stats.piercing,
+      explodeAt: draft.time + draft.config.bombFuseMs * player.stats.fuseMultiplier,
+    };
+    draft.bombs.push(bomb);
+    emit(draft, 'bombPlaced', { bombId: bomb.id, playerId: player.id, x: bomb.x, y: bomb.y });
+  }
+}
+
 // Le joueur avance d'une case dans la direction maintenue, si la case est
 // libre et si son délai de déplacement (lié à sa vitesse) est écoulé.
+// Un joueur posé sur sa propre bombe peut en sortir : seule la case
+// d'arrivée est vérifiée.
 function movePlayers(draft) {
   for (const player of draft.players) {
     const direction = DIRECTIONS[player.input.direction];
@@ -551,6 +751,90 @@ function movePlayers(draft) {
     player.y = target.y;
     player.nextMoveAt = draft.time + getMoveDelay(draft.config, player.stats);
   }
+}
+
+function collectPowerUps(draft) {
+  draft.players.forEach((player, index) => {
+    if (!player.alive) return;
+    const powerUp = draft.powerUps.find((item) => samePosition(item, player));
+    if (!powerUp) return;
+
+    draft.players[index] = POWER_UPS[powerUp.type].apply(player);
+    draft.powerUps = draft.powerUps.filter((item) => item.id !== powerUp.id);
+    emit(draft, 'powerUpCollected', { playerId: player.id, type: powerUp.type });
+  });
+}
+
+// Une bombe explose quand sa mèche est terminée ou quand une flamme la
+// touche. La boucle continue tant qu'une bombe est prête : c'est ce qui
+// produit les réactions en chaîne.
+function explodeDueBombs(draft) {
+  const isDue = (bomb) => bomb.explodeAt <= draft.time || hasFlameAt(draft, bomb.x, bomb.y);
+
+  let bomb = draft.bombs.find(isDue);
+  while (bomb) {
+    explodeBomb(draft, bomb);
+    bomb = draft.bombs.find(isDue);
+  }
+}
+
+function explodeBomb(draft, bomb) {
+  const cells = getExplosionCells(draft, bomb);
+  const expiresAt = draft.time + draft.config.flameDurationMs;
+
+  draft.bombs = draft.bombs.filter((item) => item.id !== bomb.id);
+  // Les bonus déjà présents sur la carte brûlent dans l'explosion.
+  draft.powerUps = draft.powerUps.filter((item) => !cells.some((cell) => samePosition(cell, item)));
+
+  for (const cell of cells) {
+    draft.flames.push({ x: cell.x, y: cell.y, ownerId: bomb.ownerId, expiresAt });
+    if (getTile(draft, cell.x, cell.y) === TILE.OBSTACLE) destroyObstacle(draft, cell);
+  }
+
+  emit(draft, 'bombExploded', { bombId: bomb.id, ownerId: bomb.ownerId, cells });
+}
+
+// Retire l'obstacle de la grille et du décor, puis tire au sort un bonus.
+function destroyObstacle(draft, cell) {
+  draft.map[cell.y][cell.x] = TILE.EMPTY;
+  draft.objects = draft.objects.filter((object) => !(object.destructible && samePosition(object, cell)));
+  emit(draft, 'obstacleDestroyed', { x: cell.x, y: cell.y });
+
+  if (random(draft) >= draft.config.powerUpDropChance) return;
+  const type = randomItem(draft, Object.keys(POWER_UPS));
+  draft.powerUps.push({ id: nextId(draft, 'powerUp'), type, x: cell.x, y: cell.y });
+}
+
+function removeExpiredFlames(draft) {
+  draft.flames = draft.flames.filter((flame) => flame.expiresAt > draft.time);
+}
+
+function damagePlayersInFlames(draft) {
+  for (const player of draft.players) {
+    if (!player.alive || draft.time < player.invincibleUntil) continue;
+    const flame = draft.flames.find((item) => samePosition(item, player));
+    if (flame) hitPlayer(draft, player, flame.ownerId);
+  }
+}
+
+// Une flamme retire un coeur. Le joueur devient ensuite invincible un court
+// instant, sinon la même flamme le toucherait à nouveau au tick suivant.
+// Sans coeur restant, il est éliminé.
+function hitPlayer(draft, player, attackerId) {
+  player.hearts -= 1;
+
+  if (player.hearts > 0) {
+    player.invincibleUntil = draft.time + draft.config.invincibilityMs;
+    emit(draft, 'playerHit', { playerId: player.id, attackerId, hearts: player.hearts });
+    return;
+  }
+
+  player.alive = false;
+  player.eliminatedAt = draft.time;
+  player.deaths += 1;
+  const attacker = getPlayer(draft, attackerId);
+  if (attacker && attacker.id !== player.id) attacker.kills += 1;
+  emit(draft, 'playerDied', { playerId: player.id, killerId: attackerId });
 }
 
 // ===========================================================================
@@ -587,6 +871,7 @@ module.exports = {
   SHOPS,
   VEGETATION,
   DESTRUCTIBLES,
+  POWER_UPS,
   // actions (retournent un nouvel état)
   createGame,
   addPlayer,
@@ -599,6 +884,10 @@ module.exports = {
   // lecture de l'état
   getPlayer,
   getTile,
+  getBombAt,
   isWalkable,
+  getExplosionCells,
   getSpawnPositions,
+  getResults,
+  getRoundRanking,
 };
