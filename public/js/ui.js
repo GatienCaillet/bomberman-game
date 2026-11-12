@@ -1,98 +1,42 @@
 'use strict';
 
-// Images et sons servis depuis public/ressources/.
-const assetBase = 'ressources/';
-function grenobleRessource(chemin) {
-  return assetBase + chemin;
-}
-document.querySelectorAll('[data-ressource]').forEach(element => {
-  element.src = grenobleRessource(element.dataset.ressource);
-});
-for (const [variable, chemin] of Object.entries({"--image-integree-1":"fonds/grenoble-accueil.png"})) {
-  document.documentElement.style.setProperty(variable, 'url("' + grenobleRessource(chemin) + '")');
-}
-
-;
-
-// Module scene-场景 / 功能模块
-// 立即执行函数：初始化欢迎页的动态场景。
-(() => {
- 'use strict';
- const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
- for(const cableway of document.querySelectorAll('[data-cableway]')){
-  const train=document.createElement('div');train.className='cableway-train';
-  for(let i=0;i<4;i++){
-   const carriage=document.createElement('div');carriage.className='cableway-car';
-   const cabin=document.createElement('img');
-   cabin.src=grenobleRessource('decor/16-telepherique-grenoble.png');
-   cabin.dataset.ressource='decor/16-telepherique-grenoble.png';cabin.className='cableway-cabin';cabin.alt='';cabin.draggable=false;
-   carriage.append(cabin);train.append(carriage);
-  }
-  cableway.append(train);
- }
- const art={
-  police:['personnages/animations/policier/repos-face/animation.gif','personnages/animations/policier/repos-face/image-01.png',118],
-  protester:['personnages/animations/manifestant/repos-face/animation.gif','personnages/animations/manifestant/repos-face/image-01.png',118],
-  walkingPolice:['personnages/animations/policier/marche-profil/animation.gif','personnages/animations/policier/marche-profil/image-01.png',112],
-  walkingProtester:['personnages/animations/manifestant/marche-profil/animation.gif','personnages/animations/manifestant/marche-profil/image-01.png',112],
-  bomb:['bombes/animations/bombe-ronde/combustion/animation.gif','bombes/animations/bombe-ronde/combustion/image-01.png',65],
-  cylinder:['bombes/animations/bombe-cylindrique/combustion/animation.gif','bombes/animations/bombe-cylindrique/combustion/image-01.png',52],
-  cone:['obstacles/destructibles/03-cone.png',null,59],bin:['obstacles/destructibles/04-poubelle.png',null,59],
-  tree:['obstacles/vegetation/02-arbre.png',null,72],shrub:['obstacles/vegetation/01-buisson.png',null,57],
-  bakery:['batiments/commerces/04-1x1.png',null,70],fruit:['batiments/commerces/02-1x2.png',null,104],
-  conePolice:['interface/personnages-comiques/policier-cone.png',null,85],binProtester:['interface/personnages-comiques/cache-poubelle.png',null,111],
- };
- // Des emplacements réguliers rythment les deux rangées ; le fond est décalé d’une demi-case. / 两排等距，后排错开半位。
- const patterns={
-  welcome:{back:['bakery','tree','walkingPolice','shrub','fruit','tree','walkingProtester','shrub','bakery','tree','walkingPolice','shrub'],front:['police','bomb','binProtester','cone','protester','cylinder','conePolice','bin','police','bomb','protester','cone']},
-  end:{back:['tree','bakery','walkingProtester','shrub','tree','fruit','walkingPolice','shrub','tree','bakery','walkingProtester','shrub'],front:['protester','cone','conePolice','bomb','police','bin','binProtester','cylinder','protester','cone','police','bomb']},
-  scores:{back:['bakery','tree','walkingPolice','shrub','fruit','tree','walkingProtester','shrub','bakery','tree','walkingPolice','shrub'],front:['conePolice','bomb','protester','cone','police','bin','binProtester','cylinder','protester','cone','police','bomb']},
- };
-
- // 根据场景类型和用户的动态效果偏好，重新生成两层游行角色。
- function render(){
-  for(const stage of document.querySelectorAll('[data-parade]')){
-   stage.replaceChildren();const pattern=patterns[stage.dataset.parade]||patterns.welcome;
-   for(const layer of ['back','front']){
-    const row=document.createElement('div');row.className='parade-row parade-row--'+layer;
-
-   // 回调函数：为每个队伍位置创建图片，并应用尺寸、翻转和动画延迟。
-    pattern[layer].forEach((key,index)=>{
-     const [moving,still,size]=art[key],slot=document.createElement('div'),img=document.createElement('img');slot.className='parade-slot';
-     img.dataset.ressource=reduced.matches&&still?still:moving;img.src=grenobleRessource(img.dataset.ressource);img.alt='';img.draggable=false;
-     img.className='parade-sprite'+(index%4===2?' parade-sprite--flip':'')+(!still?' parade-sprite--bob':'');
-     img.style.setProperty('--size',size+'px');img.style.setProperty('--delay',(-index*.31)+'s');slot.append(img);row.append(slot);
-    });stage.append(row);
-   }
-  }
- }
- render();reduced.addEventListener('change',render);
-})();
-
-;
-
-// Module accueil-欢迎 / 功能模块
+// ============================================================================
+// 1. 欢迎页输入与显示入口 / Accueil : éléments de saisie et d’affichage
+// ============================================================================
+// 对应 index.html 中的表单、输入框和提示区域。
+// Correspond au formulaire, au champ de saisie et à la zone de message dans index.html.
 const form = document.querySelector('#join-form');
 const nickname = document.querySelector('#nickname');
 const message = document.querySelector('#message');
 
+// ============================================================================
+// 2. 显示调用：showMessage() 更新 #message / Affichage : actualiser #message
+// ============================================================================
 /**
- * 更新表单下方的状态消息。
- * @param {string} text 要显示给用户的文字。
- * @param {boolean} [isError=false] 是否为错误消息。
+ * 更新表单下方的状态消息。 / Actualiser le message sous le formulaire.
+ * @param {string} text 要显示的文字。 / Texte à afficher.
+ * @param {boolean} [isError=false] 是否显示错误样式。 / Appliquer le style d’erreur.
  */
 function showMessage(text, isError = false) {
   message.textContent = text;
   message.classList.toggle('error', isError);
 }
 
-// 输入事件处理函数：用户重新输入时清除错误状态和旧消息。
+// ============================================================================
+// 3. 输入调用：监听 #nickname 的 input 事件 / Saisie : écouter l’événement input
+// ============================================================================
+// 重新输入时清除旧提示和错误标记。
+// Effacer l’ancien message et l’état d’erreur lors d’une nouvelle saisie.
 nickname.addEventListener('input', () => {
   nickname.removeAttribute('aria-invalid');
   showMessage('');
 });
 
-// 提交事件处理函数：校验昵称、保存昵称，并向页面广播加入事件。
+// ============================================================================
+// 4. 按钮调用：开始按钮提交 #join-form / Démarrage : soumettre #join-form
+// ============================================================================
+// 当前只校验、保存昵称并发送事件；真正启动游戏由接入的游戏模块处理。
+// Valider et enregistrer le pseudo ; le module de jeu doit traiter l’événement reçu.
 form.addEventListener('submit', (event) => {
   event.preventDefault();
   const playerName = nickname.value.trim();
@@ -105,70 +49,16 @@ form.addEventListener('submit', (event) => {
 
   nickname.value = playerName;
   nickname.removeAttribute('aria-invalid');
+  // ==== 结束页的数据入口：保存昵称 / Données pour la page de fin : enregistrer le pseudo ====
   try {
     sessionStorage.setItem('grenobleBomber.nickname', playerName);
   } catch {
-    // L’événement transmet le pseudo au jeu intégré même sans stockage local. / 存储失败仍传昵称。
+    // 存储失败仍通过事件传递昵称。 / Transmettre le pseudo par événement même sans stockage.
   }
-  window.dispatchEvent(new CustomEvent('grenoble-bomber:join', { detail: { nickname: playerName } }));
+  // ==== 游戏模块调用通知：{ nickname } / Notification au module de jeu : { nickname } ====
+  window.dispatchEvent(
+    new CustomEvent('grenoble-bomber:join', { detail: { nickname: playerName } })
+  );
+  // ==== 欢迎页显示调用：更新状态提示 / Affichage de l’accueil : actualiser le message ====
   showMessage(`Prêt, ${playerName} ! La partie sera disponible après intégration.`);
 });
-
-;
-
-// Module classement-积分 / 功能模块
-// 立即执行函数：创建排行榜弹窗，并绑定打开、关闭和键盘操作。
-(() => {
- 'use strict';
- const standalone=false;
- const asset=grenobleRessource;
- const home="index.html";
- const players=[
-  {name:'Baguette.exe',wins:12,score:'2 450',avatar:'interface/personnages-comiques/policier-cone.png'},
-  {name:'Capitaine Boum',wins:9,score:'1 980',avatar:'personnages/animations/policier/repos-face/image-01.png'},
-  {name:'La Poubelle',wins:7,score:'1 640',avatar:'interface/personnages-comiques/cache-poubelle.png'},
-  {name:'Cône-nan',wins:5,score:'1 210',avatar:'obstacles/destructibles/03-cone.png'},
-  {name:'Maman, je lag !',wins:3,score:'890',avatar:'personnages/animations/manifestant/repos-face/image-01.png'},
- ];
- const overlay=document.createElement('div');overlay.className='score-overlay'+(standalone?' score-overlay--standalone':'');overlay.hidden=true;
- // 回调函数：将玩家数据转换为排行榜表格行。
- const playerRows=players.map((p,i)=>`<tr><td class="rank rank-${i+1}"><span>${String(i+1).padStart(2,'0')}</span></td><td><span class="score-player"><img src="${asset(p.avatar)}" alt=""><span>${p.name}${i===0?'<small>LE CÔNE D’OR</small>':''}</span></span></td><td>${p.wins}</td><td class="score-value">${p.score}</td></tr>`).join('');
- overlay.innerHTML=`<section class="score-panel" role="${standalone?'region':'dialog'}" ${standalone?'':'aria-modal="true"'} aria-labelledby="score-title">
-  <button class="score-close" type="button" aria-label="${standalone?'Retour à l’accueil':'Fermer le classement'}">${standalone?'←':'×'}</button>
-  <h2 id="score-title" class="score-heading"><span class="score-sr-only">Classement</span><img class="score-title-art" src="${asset('interface/titres/03-titre-classement.png')}" alt=""></h2>
-  <p class="score-kicker">LES LÉGENDES DU TROTTOIR</p>
-  <p class="score-subtitle">Beaucoup de panache. Un peu de dégâts.</p>
-  <div class="score-demo">DONNÉES DE DÉMONSTRATION</div>
-  <div class="score-table-wrap"><table class="score-table"><caption class="score-sr-only">Classement de démonstration des joueurs</caption><thead><tr><th scope="col">RANG</th><th scope="col">JOUEUR</th><th scope="col">VICTOIRES</th><th scope="col">SCORE</th></tr></thead><tbody>${playerRows}</tbody></table></div>
-  <p class="score-hint">${standalone?'Échap · retour à l’accueil':'C ou Échap · fermer'}</p>
- </section>`;
- (standalone?document.getElementById('scoreboard-root')||document.body:document.body).append(overlay);
- const closeButton=overlay.querySelector('.score-close');let previousFocus=null;
-
- // 打开排行榜，锁定页面滚动，并通知其他模块排行榜状态已改变。
- function open(){if(!overlay.hidden)return;previousFocus=document.activeElement;overlay.hidden=false;if(!standalone)document.documentElement.classList.add('score-dialog-open');window.dispatchEvent(new CustomEvent('grenoble-bomber:scoreboard',{detail:{open:true}}));closeButton.focus({preventScroll:true});}
-
- // 关闭排行榜，释放页面滚动，并把焦点还给打开排行榜的元素。
- function close(){if(standalone){window.location.href=home;return;}overlay.hidden=true;document.documentElement.classList.remove('score-dialog-open');window.dispatchEvent(new CustomEvent('grenoble-bomber:scoreboard',{detail:{open:false}}));previousFocus?.focus?.({preventScroll:true});}
-
- // 点击关闭按钮时，调用关闭排行榜函数。
- closeButton.addEventListener('click',close);
-
- // 点击事件处理函数：点击遮罩背景时关闭排行榜。
- overlay.addEventListener('click',e=>{if(e.target===overlay&&!standalone)close();});
-
- // 回调函数：为排行榜入口按钮绑定打开操作。
- document.querySelectorAll('[data-scoreboard-open],#score-button').forEach(button=>button.addEventListener('click',open));
-
- // 键盘事件处理函数：实现 C 打开/关闭、Escape 关闭，并拦截弹窗打开时的游戏按键。
- window.addEventListener('keydown',event=>{
-  const editing=event.target instanceof HTMLElement&&(event.target.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName));
-  if(!overlay.hidden&&(event.code==='KeyC'||event.code==='Escape')){event.preventDefault();event.stopImmediatePropagation();if(!event.repeat)close();return;}
-  if(!overlay.hidden){
-   if(event.code==='Tab'&&!standalone){event.preventDefault();closeButton.focus();}
-   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyW','KeyA','KeyS','KeyD','KeyV','KeyR'].includes(event.code)){event.preventDefault();event.stopImmediatePropagation();}return;
-  }
-  if(event.code==='KeyC'&&!editing&&!event.ctrlKey&&!event.metaKey&&!event.altKey){event.preventDefault();event.stopImmediatePropagation();if(!event.repeat)open();}
- },true);
- if(standalone)open();
-})();

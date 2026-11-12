@@ -1,6 +1,6 @@
 # Ressources de Grenoble Bomber
 
-Ce dossier contient 51 fichiers médias : 40 PNG, 8 GIF et 3 WAV.
+Ce dossier contient 57 fichiers médias : 46 PNG, 8 GIF et 3 WAV.
 Les noms sont en français, en minuscules et sans accents ni espaces.
 Les identifiants numériques existants sont conservés.
 
@@ -11,6 +11,7 @@ Les identifiants numériques existants sont conservés.
 | `batiments/commerces/` | Neuf bâtiments avec commerce intégré |
 | `batiments/logements/` | Six bâtiments résidentiels |
 | `bombes/` | Bombes fixes, aperçus animés et bandes d’animation |
+| `bonus/` | Capacité de bombes, portée des flammes et vitesse |
 | `personnages/` | Policier et manifestant, images fixes et animations |
 | `obstacles/` | Cône, poubelle, buisson et arbre |
 | `sols/` | Pavés sans joint |
@@ -18,6 +19,32 @@ Les identifiants numériques existants sont conservés.
 | `decor/` | Cabine du téléphérique |
 | `interface/` | Titres et personnages décoratifs |
 | `sons/` | Pas, placement et explosion |
+
+## Bonus / 升级道具
+
+Trois bonus sur une plaque carrée en bois, en PNG de 256×256 px chacun.
+Le fond est transparent à l’extérieur de la plaque ; le panneau crème est opaque.
+Les versions sans plaque restent disponibles sous leur nom d’origine. /
+三个道具各自位于方形木板上，板面不透明，板子外侧透明；原来的裸图保留。
+Chaque pixel de dessin occupe un bloc de 4×4 px (grille logique 64×64),
+sans lissage ni transparence partielle. / 三张均为 256×256 透明 PNG，
+每个绘制像素为 4×4 px，无平滑和半透明边缘。
+
+| Fichier dans `bonus/` | Signification / 含义 |
+| --- | --- |
+| `01-capacite-bombes-plaque.png` | Bombe avec un plus vert : capacité de bombes / 炸弹容量提升 |
+| `02-portee-flammes-plaque.png` | Flamme orange et jaune : portée des explosions / 爆炸范围提升 |
+| `03-vitesse-plaque.png` | Chaussure verte avec traits de vitesse / 移动速度提升 |
+
+Les afficher au centre d’une case et conserver `ctx.imageSmoothingEnabled = false`.
+Ces fichiers fournissent uniquement les visuels ; les règles de bonus restent
+à implémenter côté serveur. / 居中绘制于格子内，关闭 Canvas 图像平滑；
+这里只提供素材，升级规则仍需由服务端实现。
+
+Prompts et export : [version sur plaque](../../documentation/generation/bonus/instructions-plaques.json),
+[version sans plaque](../../documentation/generation/bonus/instructions-generation.json)
+et [exporteur macOS](../../documentation/generation/bonus/export-sprites.swift).
+Voir les trois bonus au début de la [galerie](../apercus/ressources/ressources.html).
 
 ## Utilisation des animations
 

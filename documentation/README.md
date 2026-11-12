@@ -1,5 +1,7 @@
 # Grenoble Bomber — Interface et ressources de Ziyang
 
+[中文版](README-chinois.md)
+
 Les pages d’accueil, de fin et de classement sont prêtes visuellement.
 Le réseau, les résultats et les scores restent à connecter.
 
@@ -17,6 +19,7 @@ Ouvrir [l’accueil](http://localhost:8000/) ou [les aperçus](http://localhost:
 
 L’interface et le Canvas doivent partager la même connexion via
 [public/js/socket.js](../public/js/socket.js), à fournir par Rachel.
+Ce fichier n’est actuellement qu’un emplacement réservé.
 Les événements ci-dessous sont des événements DOM sur `window` ; ils ne
 sont pas encore reliés au serveur.
 
@@ -42,10 +45,11 @@ Fichiers : [fin.html](../public/fin.html) et [fin.js](../public/js/fin.js).
 ### Classement
 
 Fichiers : [classement.html](../public/classement.html) et [classement.js](../public/js/classement.js).
-Le tableau existe aussi dans les scripts d’accueil et de fin.
+L’accueil, la fin et la page dédiée chargent ce même composant.
 
-- `players` contient les données de démonstration : `name`, `wins`, `score` et `avatar` (chemin relatif à `public/ressources/`).
-- Remplacer ces données par l’API de Tasnim, adapter `.score-table tbody` et retirer la mention de démonstration.
+- [public/data/classement-data.js](../public/data/classement-data.js) définit `window.classementData` avec `label` et `players` ; chaque joueur utilise les champs `name`, `wins` et `score`, sans avatar. L’ordre du fichier détermine le rang.
+- Charger ce fichier avant `js/classement.js`. Modifier les données puis actualiser la page ; l’ouverture directe du HTML fonctionne sans `fetch()`. Lors de l’intégration de l’API de Tasnim, conserver ces champs et les points d’entrée ci-dessous.
+- `window.Scoreboard.open()` et `window.Scoreboard.close()` permettent l’appel depuis un autre script. `data-scoreboard-auto-open` sur le `body` affiche automatiquement le panneau sur la page dédiée.
 - `#score-button` ou `[data-scoreboard-open]` ouvre le tableau ; `C` le bascule et `Escape` le ferme.
 - `grenoble-bomber:scoreboard` : `event.detail = { open: true/false }`. Le Canvas peut utiliser cet événement pour bloquer ses touches pendant l’ouverture.
 
@@ -60,6 +64,7 @@ Les pages les chargent directement depuis ce dossier.
 | `batiments/commerces/` | Bâtiments avec magasin intégré |
 | `personnages/` | Personnages et animations |
 | `bombes/` | Bombes fixes et animées |
+| `bonus/` | Trois bonus sur plaques en bois : capacité de bombes, portée des flammes et vitesse (PNG 256×256, versions sans plaque conservées) |
 | `obstacles/` | Cônes, poubelles, arbres et buissons |
 | `sols/`, `fonds/`, `decor/`, `interface/` | Sol, paysage, téléphérique et titres |
 | `sons/` | Pas, placement et explosion |
@@ -72,7 +77,17 @@ Conserver les proportions et aligner le bas de l’image sur le bas des cases oc
 Les fichiers `bande-animation.png` servent au Canvas ; les GIF permettent de voir les animations.
 Voir le [guide des ressources](../public/ressources/lisez-moi.md) pour les dimensions et les bandes disponibles.
 
-La [version de test Canvas](../public/apercus/jeu/jeu.html) sert uniquement à vérifier la cohérence des pixels entre les ressources.
-Son script expose `GrenobleFlame.draw(ctx, x, y, size, mask, frame)` pour les explosions :
-haut/droite/bas/gauche = `1/2/4/8`, et `frame` va de `0` à `7`.
-Les règles définitives du jeu restent côté serveur.
+## Exemple de contrôleur de personnage
+
+Fichier : [controller.md](../public/js/controller.md). Ce fichier est un exemple de
+contrôleur de personnage : il charge les animations et propose des commandes simples
+pour les tests. Renommer `controller.md` en `controller.js`, puis ouvrir
+l’[exemple HTML](../public/apercus/jeu/jeu.html) ; la page référence déjà ce chemin JS.
+
+- Les flèches ou WASD permettent un déplacement continu. La dernière direction pressée prend immédiatement la priorité ; au relâchement, une direction encore maintenue reprend. Relâcher toutes les touches arrête le joueur.
+- Espace pose une bombe sur la case la plus proche des pieds, V pose un obstacle. Le corps de la bombe est centré ; elle disparaît après 3 secondes par défaut et déclenche un callback d’explosion. Les pas, la pose et l’explosion utilisent les sons existants.
+- Le policier (`policier`) utilise la bombe cylindrique et le cône ; le manifestant (`manifestant`) utilise la bombe ronde et la poubelle. C bascule le classement, Échap le ferme ; `classement.js` gère ces touches.
+- `GameController.setPlayer({ id, character })` associe le joueur et son personnage ; `getPlayer()` lit cette association. `onPlace(fn)` et `onBombExplode(fn)` fournissent les enregistrements de pose et les callbacks d’explosion avec `ownerId`. Les objets posés conservent leur propriétaire d’origine.
+- `setCollision(fn)` permet de fournir une règle de collision. La démo vérifie les limites de la grille, sans simuler la propagation des flammes, les dégâts ou le score. Les règles définitives restent côté serveur ; la démo n’est pas encore reliée au réseau.
+
+Voir les interfaces détaillées et l’ordre de lecture dans le [guide des aperçus](../public/apercus/lisez-moi.md).

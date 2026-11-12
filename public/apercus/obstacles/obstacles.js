@@ -5,7 +5,7 @@ const assetBase = '../../ressources/';
 function grenobleRessource(chemin) {
   return assetBase + chemin;
 }
-document.querySelectorAll('[data-ressource]').forEach(element => {
+document.querySelectorAll('[data-ressource]').forEach((element) => {
   element.src = grenobleRessource(element.dataset.ressource);
 });
 for (const [variable, chemin] of Object.entries({})) {

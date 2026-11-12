@@ -1,30 +1,401 @@
 <!doctype html>
 <html lang="fr">
-<head>
- <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#72b3cc">
- <title>Grenoble Bomber · Accueil</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#72b3cc" />
+    <title>Grenoble Bomber · Accueil</title>
 
- <link rel="stylesheet" href="style.css">
-</head>
-<body><main class="game-screen screen-welcome">
- <div class="landscape" aria-hidden="true"></div>
- <div class="cableway" data-cableway aria-hidden="true"></div>
- <header class="topbar"><a class="brand" href="index.html"><img data-ressource="bombes/fixes/06-bombe-ronde.png" alt=""><span>GRENOBLE<br>BOMBER</span></a><nav class="top-nav" aria-label="Navigation principale"><a href="classement.html">CLASSEMENT ↗</a></nav></header>
- <section class="menu" aria-labelledby="game-title">
-  <h1 id="game-title" class="menu-heading"><span class="sr-only">Grenoble Bomber</span><img class="title-art" data-ressource="interface/titres/01-titre-accueil.png" alt="" width="768" height="258"></h1>
-  <p class="menu-kicker">ÇA VA FAIRE BOUM.</p>
-  <p class="intro">Choisis un pseudo. Garde une issue.</p>
-  <form id="join-form" class="nickname-form" novalidate>
-   <label for="nickname">TON PSEUDO DE LÉGENDE</label><div class="input-wrap"><input id="nickname" name="nickname" type="text" placeholder="Baguette.exe" maxlength="20" autocomplete="nickname" required aria-describedby="message"></div>
-   <button class="pixel-button" type="submit"><span>C’EST PARTI !</span><span class="button-arrow" aria-hidden="true">▶</span></button>
-  </form>
-  <button class="secondary-button" id="score-button" type="button"><span aria-hidden="true">★</span> LE TABLEAU DES HÉROS</button>
-  <p id="message" class="message" role="status" aria-live="polite"></p>
-  <p class="menu-footnote">UN PETIT JEU. UN GRAND BAZAR.<br>Prototype local · salon de jeu à connecter</p>
- </section>
- <div class="parade" data-parade="welcome" aria-hidden="true"></div>
- <p class="screen-caption">GRENOBLE, FRANCE &nbsp; / &nbsp; <kbd>C</kbd> classement &nbsp; / &nbsp; attention aux cônes.</p>
-</main>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="classement.css" />
+  </head>
+  <body>
+    <main class="game-screen screen-welcome">
+      <div
+        class="landscape"
+        style="background-image: url('ressources/fonds/grenoble-accueil.png')"
+        aria-hidden="true"
+      ></div>
+      <div class="cableway" aria-hidden="true">
+        <div class="cableway-train">
+          <div class="cableway-car">
+            <img
+              class="cableway-cabin"
+              src="ressources/decor/16-telepherique-grenoble.png"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="cableway-car">
+            <img
+              class="cableway-cabin"
+              src="ressources/decor/16-telepherique-grenoble.png"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="cableway-car">
+            <img
+              class="cableway-cabin"
+              src="ressources/decor/16-telepherique-grenoble.png"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="cableway-car">
+            <img
+              class="cableway-cabin"
+              src="ressources/decor/16-telepherique-grenoble.png"
+              alt=""
+              draggable="false"
+            />
+          </div>
+        </div>
+      </div>
+      <header class="topbar">
+        <a class="brand" href="index.html"
+          ><img src="ressources/bombes/fixes/06-bombe-ronde.png" alt="" /><span
+            >GRENOBLE<br />BOMBER</span
+          ></a
+        >
+        <!-- ==== 导航：链接跳转到独立排行榜页 / Navigation : lien vers la page du classement ==== -->
+        <nav class="top-nav" aria-label="Navigation principale">
+          <a href="classement.html">CLASSEMENT ↗</a>
+        </nav>
+      </header>
+      <section class="menu" aria-labelledby="game-title">
+        <h1 id="game-title" class="menu-heading">
+          <span class="sr-only">Grenoble Bomber</span
+          ><img
+            class="title-art"
+            src="ressources/interface/titres/01-titre-accueil.png"
+            alt=""
+            width="768"
+            height="258"
+          />
+        </h1>
+        <p class="menu-kicker">ÇA VA FAIRE BOUM.</p>
+        <p class="intro">Choisis un pseudo. Garde une issue.</p>
+        <!-- ==== 欢迎页输入：#nickname 由 ui.js 读取 / Saisie : ui.js lit #nickname ==== -->
+        <form id="join-form" class="nickname-form" novalidate>
+          <label for="nickname">TON PSEUDO DE LÉGENDE</label>
+          <div class="input-wrap">
+            <input
+              id="nickname"
+              name="nickname"
+              type="text"
+              placeholder="Baguette.exe"
+              maxlength="20"
+              autocomplete="nickname"
+              required
+              aria-describedby="message"
+            />
+          </div>
+          <!-- ==== 开始按钮：提交 #join-form，调用 ui.js 的 submit 处理 / Démarrer : soumettre #join-form ==== -->
+          <button class="pixel-button" type="submit">
+            <span>C’EST PARTI !</span><span class="button-arrow" aria-hidden="true">▶</span>
+          </button>
+        </form>
+        <!-- ==== 排行榜按钮：classement.js 监听此入口并调用 open() / Classement : ouvrir via classement.js ==== -->
+        <button class="secondary-button" id="score-button" type="button" data-scoreboard-open>
+          <span aria-hidden="true">★</span> LE TABLEAU DES HÉROS
+        </button>
+        <!-- ==== 动态显示：ui.js 的 showMessage() 更新 #message / Affichage : showMessage() actualise #message ==== -->
+        <p id="message" class="message" role="status" aria-live="polite"></p>
+        <p class="menu-footnote">
+          UN PETIT JEU. UN GRAND BAZAR.<br />Prototype local · salon de jeu à connecter
+        </p>
+      </section>
+      <div class="parade" aria-hidden="true">
+        <div class="parade-row parade-row--back">
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/batiments/commerces/04-1x1.png"
+              style="--size: 70px; --delay: 0s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/02-arbre.png"
+              style="--size: 72px; --delay: -0.31s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/policier/marche-profil/image-01.png"
+              />
+              <img
+                class="parade-sprite parade-sprite--flip"
+                src="ressources/personnages/animations/policier/marche-profil/animation.gif"
+                style="--size: 112px; --delay: -0.62s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/01-buisson.png"
+              style="--size: 57px; --delay: -0.93s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/batiments/commerces/02-1x2.png"
+              style="--size: 104px; --delay: -1.24s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/02-arbre.png"
+              style="--size: 72px; --delay: -1.55s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/manifestant/marche-profil/image-01.png"
+              />
+              <img
+                class="parade-sprite parade-sprite--flip"
+                src="ressources/personnages/animations/manifestant/marche-profil/animation.gif"
+                style="--size: 112px; --delay: -1.86s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/01-buisson.png"
+              style="--size: 57px; --delay: -2.17s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/batiments/commerces/04-1x1.png"
+              style="--size: 70px; --delay: -2.48s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/02-arbre.png"
+              style="--size: 72px; --delay: -2.79s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/policier/marche-profil/image-01.png"
+              />
+              <img
+                class="parade-sprite parade-sprite--flip"
+                src="ressources/personnages/animations/policier/marche-profil/animation.gif"
+                style="--size: 112px; --delay: -3.1s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/01-buisson.png"
+              style="--size: 57px; --delay: -3.41s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+        </div>
+        <div class="parade-row parade-row--front">
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/policier/repos-face/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/personnages/animations/policier/repos-face/animation.gif"
+                style="--size: 118px; --delay: 0s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/bombes/animations/bombe-ronde/combustion/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/bombes/animations/bombe-ronde/combustion/animation.gif"
+                style="--size: 65px; --delay: -0.31s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--flip parade-sprite--bob"
+              src="ressources/interface/personnages-comiques/cache-poubelle.png"
+              style="--size: 111px; --delay: -0.62s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/destructibles/03-cone.png"
+              style="--size: 59px; --delay: -0.93s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/manifestant/repos-face/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/personnages/animations/manifestant/repos-face/animation.gif"
+                style="--size: 118px; --delay: -1.24s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/bombes/animations/bombe-cylindrique/combustion/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/bombes/animations/bombe-cylindrique/combustion/animation.gif"
+                style="--size: 52px; --delay: -1.55s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--flip parade-sprite--bob"
+              src="ressources/interface/personnages-comiques/policier-cone.png"
+              style="--size: 85px; --delay: -1.86s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/destructibles/04-poubelle.png"
+              style="--size: 59px; --delay: -2.17s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/policier/repos-face/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/personnages/animations/policier/repos-face/animation.gif"
+                style="--size: 118px; --delay: -2.48s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/bombes/animations/bombe-ronde/combustion/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/bombes/animations/bombe-ronde/combustion/animation.gif"
+                style="--size: 65px; --delay: -2.79s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/manifestant/repos-face/image-01.png"
+              />
+              <img
+                class="parade-sprite parade-sprite--flip"
+                src="ressources/personnages/animations/manifestant/repos-face/animation.gif"
+                style="--size: 118px; --delay: -3.1s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/destructibles/03-cone.png"
+              style="--size: 59px; --delay: -3.41s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+        </div>
+      </div>
+      <p class="screen-caption">GRENOBLE, FRANCE &nbsp; / &nbsp; attention aux cônes.</p>
+    </main>
 
-<script src="js/ui.js"></script>
-</body></html>
+    <!-- ==== 行为绑定：输入、开始按钮与状态显示 / Interactions : saisie, démarrage et messages ==== -->
+    <script src="js/ui.js"></script>
+    <!-- ==== 排行榜调用：绑定按钮并提供 window.Scoreboard / Classement : boutons et interface publique ==== -->
+    <!-- ==== 排名数据：先于面板脚本加载 / Données : charger avant le panneau ==== -->
+    <script src="data/classement-data.js"></script>
+    <script src="js/classement.js"></script>
+  </body>
+</html>

@@ -1,5 +1,7 @@
 # Grenoble Bomber — Ziyang 的界面与素材说明
 
+[Version française](README.md)
+
 欢迎页、结束页和排行榜的视觉已完成。
 网络、比赛结果和真实积分数据仍待对接。
 
@@ -15,8 +17,8 @@ python3 -m http.server 8000 --directory public
 
 ## 待对接接口
 
-界面和 Canvas 应通过 Rachel 提供的
-[public/js/socket.js](../public/js/socket.js) 共用同一个网络连接。
+界面和 Canvas 应通过 Rachel 负责实现的
+[public/js/socket.js](../public/js/socket.js) 共用同一个网络连接；该文件目前仅为占位。
 下面的事件都是在 `window` 上发送的页面 DOM 事件，目前尚未连接服务器。
 
 ### 欢迎页
@@ -41,10 +43,11 @@ python3 -m http.server 8000 --directory public
 ### 排行榜
 
 文件：[classement.html](../public/classement.html)、[classement.js](../public/js/classement.js)。
-欢迎页和结束页的脚本中也包含排行榜组件。
+欢迎页、结束页和独立排行榜页都加载同一个组件。
 
-- `players`：目前是演示数据，字段为 `name`、`wins`、`score`、`avatar`；头像路径相对于 `public/ressources/`。
-- 对接 Tasnim 的 API 后，用真实数据渲染 `.score-table tbody`，移除“演示数据”标识。
+- [public/data/classement-data.js](../public/data/classement-data.js) 定义 `window.classementData`，包含 `label` 和 `players`；每位玩家使用 `name`、`wins`、`score` 字段，不使用头像，数组顺序就是名次。
+- 数据文件先于 `js/classement.js` 加载。修改数据后刷新页面即可更新；双击 HTML 也能使用，无需 `fetch()`。之后对接 Tasnim 的 API 时，保留上述数据字段和下面的调用入口。
+- `window.Scoreboard.open()` / `window.Scoreboard.close()`：供其他脚本调用；`body` 上的 `data-scoreboard-auto-open` 让独立页面默认显示面板。
 - `#score-button` 或 `[data-scoreboard-open]`：打开排行榜；`C` 切换开关，`Escape` 关闭。
 - `grenoble-bomber:scoreboard`：`event.detail = { open: true/false }`。Canvas 可据此在排行榜打开时屏蔽游戏按键。
 
@@ -58,6 +61,7 @@ python3 -m http.server 8000 --directory public
 | `batiments/commerces/` | 带商店的完整建筑 |
 | `personnages/` | 角色及动画 |
 | `bombes/` | 静态炸弹及动画 |
+| `bonus/` | 炸弹容量、爆炸范围、移动速度三种木板道具牌（256×256，板外透明，保留原裸图） |
 | `obstacles/` | 路锥、垃圾桶、树和灌木 |
 | `sols/`、`fonds/`、`decor/`、`interface/` | 地面、背景、缆车和标题等界面素材 |
 | `sons/` | 脚步、放置和爆炸音效 |
@@ -70,7 +74,16 @@ python3 -m http.server 8000 --directory public
 `bande-animation.png` 是供 Canvas 读取的横向动画帧条；GIF 用于预览动画。
 具体尺寸和可用帧条见[素材说明](../public/ressources/lisez-moi.md)。
 
-[Canvas 测试版本](../public/apercus/jeu/jeu.html)仅用于检查素材像素的一致性。
-其脚本提供火焰接口 `GrenobleFlame.draw(ctx, x, y, size, mask, frame)`：
-上、右、下、左对应方向位 `1/2/4/8`，`frame` 为 `0` 到 `7`。
-正式游戏规则由服务器处理。
+## 角色控制器案例
+
+文件：[controller.md](../public/js/controller.md)。这个文件是角色控制器的案例，
+加载动画和简单操作，用于测试。使用前将 `controller.md` 重命名为 `controller.js`，
+再打开 [HTML 案例](../public/apercus/jeu/jeu.html)；页面已引用这个 JS 路径。
+
+- 方向键或 WASD 连续移动；最后按下的方向立即接管，松开后恢复仍按住的方向，全部松开立即停止。
+- 空格在脚下最近的格子放炸弹，V 放障碍物；炸弹弹体居中，默认 3 秒后移除并触发爆炸回调。移动、放置和爆炸使用现有音效。
+- 警察（`policier`）对应柱弹和路锥；示威者（`manifestant`）对应圆弹和垃圾桶。C 切换排行榜，Escape 关闭，由 `classement.js` 处理。
+- `GameController.setPlayer({ id, character })` 绑定玩家，`getPlayer()` 读取绑定；`onPlace(fn)` 和 `onBombExplode(fn)` 提供包含 `ownerId` 的放置记录及爆炸回调。已放物体保留放置当时的归属。
+- `setCollision(fn)` 留出碰撞接口；案例包含棋盘边界检查，不模拟火焰传播、伤害或积分规则。正式规则由服务器处理，案例尚未连接网络。
+
+详细接口与阅读顺序见[预览说明](../public/apercus/lisez-moi.md)。

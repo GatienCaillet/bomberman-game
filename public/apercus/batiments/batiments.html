@@ -1,46 +1,109 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>格勒诺布尔 · 房屋素材</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>格勒诺布尔 · 房屋素材</title>
 
- <link rel="stylesheet" href="batiments.css">
-</head>
-<body>
-  <main>
-    <h1>格勒诺布尔 · 房屋素材</h1>
-    <p>文件名为“序号-占地大小.png”，大小按占地行数 × 列数计算，屋顶不计入名称。每格 256 像素，顶部额外 128 像素用于屋顶向上遮挡。</p>
-    <label><input id="grid" type="checkbox" checked>显示占格线（黄虚线以上为顶部半格）</label>
-    <div class="gallery">
-      <figure>
-        <div class="sprite" style="--columns:1;--height:1.5"><img data-ressource="batiments/logements/01-1x1.png" width="256" height="384" alt="赭黄墙面、青绿百叶窗和石拱门的圣洛朗小屋"></div>
-        <figcaption><strong>01-1x1.png</strong><small>256 × 384 px · 占地 1 行 × 1 列</small></figcaption>
-      </figure>
-      <figure>
-        <div class="sprite" style="--columns:2;--height:1.5"><img data-ressource="batiments/logements/02-1x2.png" width="512" height="384" alt="奶油色灰泥、四扇百叶窗的横向街屋"></div>
-        <figcaption><strong>02-1x2.png</strong><small>512 × 384 px · 占地 1 行 × 2 列</small></figcaption>
-      </figure>
-      <figure>
-        <div class="sprite" style="--columns:3;--height:1.5"><img data-ressource="batiments/logements/03-1x3.png" width="768" height="384" alt="杏色、赭黄和浅粉相连的河岸联排楼"></div>
-        <figcaption><strong>03-1x3.png</strong><small>768 × 384 px · 占地 1 行 × 3 列</small></figcaption>
-      </figure>
-      <figure>
-        <div class="sprite" style="--columns:1;--height:2.5"><img data-ressource="batiments/logements/04-2x1.png" width="256" height="640" alt="粉赭色窄立面、百叶窗和铁艺栏杆的高楼"></div>
-        <figcaption><strong>04-2x1.png</strong><small>256 × 640 px · 占地 2 行 × 1 列</small></figcaption>
-      </figure>
-      <figure>
-        <div class="sprite" style="--columns:2;--height:2.5"><img data-ressource="batiments/logements/05-2x2.png" width="512" height="640" alt="赭黄灰泥、石质腰线和绿色百叶窗的居民楼"></div>
-        <figcaption><strong>05-2x2.png</strong><small>512 × 640 px · 占地 2 行 × 2 列</small></figcaption>
-      </figure>
-      <figure>
-        <div class="sprite" style="--columns:2;--height:2.5"><img data-ressource="batiments/logements/06-2x2.png" width="512" height="640" alt="杏色灰泥、两扇上层百叶窗和石拱门的新住宅"></div>
-        <figcaption><strong>06-2x2.png</strong><small>512 × 640 px · 占地 2 行 × 2 列</small><a href="2x2.html">住宅与甜品店像素对照</a></figcaption>
-      </figure>
-    </div>
-    <nav><a href="../commerces/commerces.html">查看九种商住楼对照</a><a href="../jeu/jeu.html">打开游戏画面测试</a><a href="../ressources/ressources.html">查看全部元素</a><a href="../lisez-moi.md">README · 素材说明</a></nav>
-  </main>
+    <link rel="stylesheet" href="batiments.css" />
+  </head>
+  <body>
+    <main>
+      <h1>格勒诺布尔 · 房屋素材</h1>
+      <p>
+        文件名为“序号-占地大小.png”，大小按占地行数 × 列数计算，屋顶不计入名称。每格 256
+        像素，顶部额外 128 像素用于屋顶向上遮挡。
+      </p>
+      <label><input id="grid" type="checkbox" checked />显示占格线（黄虚线以上为顶部半格）</label>
+      <div class="gallery">
+        <figure>
+          <div class="sprite" style="--columns: 1; --height: 1.5">
+            <img
+              data-ressource="batiments/logements/01-1x1.png"
+              width="256"
+              height="384"
+              alt="赭黄墙面、青绿百叶窗和石拱门的圣洛朗小屋"
+            />
+          </div>
+          <figcaption>
+            <strong>01-1x1.png</strong><small>256 × 384 px · 占地 1 行 × 1 列</small>
+          </figcaption>
+        </figure>
+        <figure>
+          <div class="sprite" style="--columns: 2; --height: 1.5">
+            <img
+              data-ressource="batiments/logements/02-1x2.png"
+              width="512"
+              height="384"
+              alt="奶油色灰泥、四扇百叶窗的横向街屋"
+            />
+          </div>
+          <figcaption>
+            <strong>02-1x2.png</strong><small>512 × 384 px · 占地 1 行 × 2 列</small>
+          </figcaption>
+        </figure>
+        <figure>
+          <div class="sprite" style="--columns: 3; --height: 1.5">
+            <img
+              data-ressource="batiments/logements/03-1x3.png"
+              width="768"
+              height="384"
+              alt="杏色、赭黄和浅粉相连的河岸联排楼"
+            />
+          </div>
+          <figcaption>
+            <strong>03-1x3.png</strong><small>768 × 384 px · 占地 1 行 × 3 列</small>
+          </figcaption>
+        </figure>
+        <figure>
+          <div class="sprite" style="--columns: 1; --height: 2.5">
+            <img
+              data-ressource="batiments/logements/04-2x1.png"
+              width="256"
+              height="640"
+              alt="粉赭色窄立面、百叶窗和铁艺栏杆的高楼"
+            />
+          </div>
+          <figcaption>
+            <strong>04-2x1.png</strong><small>256 × 640 px · 占地 2 行 × 1 列</small>
+          </figcaption>
+        </figure>
+        <figure>
+          <div class="sprite" style="--columns: 2; --height: 2.5">
+            <img
+              data-ressource="batiments/logements/05-2x2.png"
+              width="512"
+              height="640"
+              alt="赭黄灰泥、石质腰线和绿色百叶窗的居民楼"
+            />
+          </div>
+          <figcaption>
+            <strong>05-2x2.png</strong><small>512 × 640 px · 占地 2 行 × 2 列</small>
+          </figcaption>
+        </figure>
+        <figure>
+          <div class="sprite" style="--columns: 2; --height: 2.5">
+            <img
+              data-ressource="batiments/logements/06-2x2.png"
+              width="512"
+              height="640"
+              alt="杏色灰泥、两扇上层百叶窗和石拱门的新住宅"
+            />
+          </div>
+          <figcaption>
+            <strong>06-2x2.png</strong><small>512 × 640 px · 占地 2 行 × 2 列</small
+            ><a href="2x2.html">住宅与甜品店像素对照</a>
+          </figcaption>
+        </figure>
+      </div>
+      <nav>
+        <a href="../commerces/commerces.html">查看九种商住楼对照</a
+        ><a href="../jeu/jeu.html">打开游戏画面测试</a
+        ><a href="../ressources/ressources.html">查看全部元素</a
+        ><a href="../lisez-moi.md">README · 素材说明</a>
+      </nav>
+    </main>
 
-<script src="batiments.js"></script>
-</body>
+    <script src="batiments.js"></script>
+  </body>
 </html>

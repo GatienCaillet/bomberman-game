@@ -1,15 +1,50 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>画面测试</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HTML 控制器案例</title>
 
- <link rel="stylesheet" href="jeu.css">
-</head>
-<body>
-  <canvas id="game" width="544" height="352" aria-label="游戏画面。使用方向键或 WASD 移动，空格放置炸弹，V 放置障碍物，C 显示积分榜，R 重新生成地图。"></canvas>
+    <link rel="stylesheet" href="jeu.css" />
+    <link rel="stylesheet" href="../../classement.css" />
+  </head>
+  <body>
+    <main class="demo">
+      <!-- ==== 平铺地面与角色 / Sol répété et joueur ==== -->
+      <div
+        id="game"
+        class="game-board"
+        data-controller-demo
+        style="
+          --cols: 17;
+          --rows: 11;
+          background-image: url('../../ressources/sols/paves-sans-joint.png');
+        "
+        tabindex="0"
+        role="region"
+        aria-label="游戏案例。方向键或 WASD 移动，空格放炸弹，V 放障碍物，C 切换排行榜。"
+      >
+        <!-- ==== 角色：--x/--y 是脚下那一格，底边对齐；控制器只更新这两个变量
+              Joueur : --x/--y désigne la case sous ses pieds (bas aligné) ;
+              le contrôleur ne met à jour que ces deux variables ==== -->
+        <img
+          id="player"
+          class="scene-object player"
+          data-player-id="player-1"
+          data-character="policier"
+          src="../../ressources/personnages/animations/policier/repos-face/animation.gif"
+          style="--x: 1; --y: 1; --h: 1.5"
+          alt="玩家角色"
+          draggable="false"
+        />
+      </div>
 
-<script src="jeu.js"></script>
-</body>
+    </main>
+
+    <!-- ==== 排名数据：先于面板脚本加载 / Données : charger avant le panneau ==== -->
+    <script src="../../data/classement-data.js"></script>
+    <!-- ==== 方向与动作由控制器处理；C / Escape 由排行榜处理 ==== -->
+    <script src="../../js/controller.js"></script>
+    <script src="../../js/classement.js"></script>
+  </body>
 </html>
