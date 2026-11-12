@@ -14,6 +14,8 @@
  *   state = tick(state, 50);
  *   broadcast(state);
  *   state = clearEvents(state);
+ *   // entre deux manches, quand un joueur choisit son augment :
+ *   state = chooseAugment(state, playerId, 'pyromaniac');
  *
  */
 
@@ -30,10 +32,11 @@ const TILE = Object.freeze({
 });
 
 // Une partie passe par ces phases :
-// lobby -> playing (manche 1) -> playing (manche 2) -> ... -> gameOver
+// lobby -> playing -> augment -> playing -> augment -> ... -> gameOver
 const PHASE = Object.freeze({
   LOBBY: 'lobby', // les joueurs rejoignent la partie
   PLAYING: 'playing', // une manche est en cours
+  AUGMENT: 'augment', // entre deux manches, chaque joueur choisit un augment
   GAME_OVER: 'gameOver', // toutes les manches sont jouées, le meilleur score gagne
 });
 
@@ -60,9 +63,10 @@ const DEFAULT_CONFIG = Object.freeze({
   invincibilityMs: 1000, // protection après avoir perdu un coeur
   obstacleDensity: 0.5, // part des rues libres remplies de cônes et poubelles
   powerUpDropChance: 0.3, // probabilité qu'un obstacle détruit libère un bonus
+  augmentChoices: 3, // nombre d'augments proposés entre deux manches
 });
 
-// Statistiques d'un joueur sans aucun bonus.
+// Statistiques d'un joueur sans aucun bonus ni augment.
 const BASE_STATS = Object.freeze({
   maxHearts: 2, // coeurs au début de chaque manche
   speed: 1, // multiplicateur de vitesse de déplacement
@@ -71,6 +75,10 @@ const BASE_STATS = Object.freeze({
   fuseMultiplier: 1, // multiplie la durée de la mèche
   piercing: false, // les flammes traversent les obstacles
 });
+
+// Limites appliquées après les augments, pour que les malus restent jouables.
+const MIN_HEARTS = 1;
+const MIN_SPEED = 0.4;
 
 // ---------------------------------------------------------------------------
 // Éléments de décor (fichiers dans public/ressources/)
@@ -118,7 +126,7 @@ const FIXED_OBJECTS_TO_PLACE = Object.freeze([
 ]);
 
 // ---------------------------------------------------------------------------
-// Bonus
+// Bonus et augments
 // ---------------------------------------------------------------------------
 
 function withStats(player, changes) {
@@ -132,6 +140,84 @@ const POWER_UPS = Object.freeze({
   fireUp: { name: 'Flamme +1', apply: (p) => withStats(p, { bombRange: p.stats.bombRange + 1 }) },
   speedUp: { name: 'Vitesse +', apply: (p) => withStats(p, { speed: p.stats.speed + 0.2 }) },
   heart: { name: 'Coeur', apply: (p) => ({ ...p, hearts: Math.min(p.hearts + 1, p.stats.maxHearts) }) },
+});
+
+// Augments (variante du jeu) : entre deux manches, chaque joueur choisit un
+// augment parmi plusieurs tirés au hasard. Un augment est conservé jusqu'à
+// la fin de la partie. Les effets sont des additions (ou une multiplication
+// sur une seule statistique) : l'ordre dans lequel on les applique ne change
+// donc rien. « stackable: false » : un joueur ne peut le prendre qu'une fois.
+const AUGMENTS = Object.freeze({
+  vitality: {
+    tier: 1,
+    name: 'Vitalité',
+    description: '+1 coeur',
+    stackable: true,
+    apply: (s) => ({ ...s, maxHearts: s.maxHearts + 1 }),
+  },
+  pyromaniac: {
+    tier: 1,
+    name: 'Pyromane',
+    description: '+1 portée des flammes',
+    stackable: true,
+    apply: (s) => ({ ...s, bombRange: s.bombRange + 1 }),
+  },
+  stockpile: {
+    tier: 1,
+    name: 'Réserve',
+    description: '+1 bombe posée en même temps',
+    stackable: true,
+    apply: (s) => ({ ...s, maxBombs: s.maxBombs + 1 }),
+  },
+  sprinter: {
+    tier: 2,
+    name: 'Sprinter',
+    description: '+25 % de vitesse',
+    stackable: true,
+    apply: (s) => ({ ...s, speed: s.speed + 0.25 }),
+  },
+  shortFuse: {
+    tier: 2,
+    name: 'Mèche courte',
+    description: 'Les bombes explosent 30 % plus tôt',
+    stackable: false,
+    apply: (s) => ({ ...s, fuseMultiplier: s.fuseMultiplier * 0.7 }),
+  },
+  colossus: {
+    tier: 2,
+    name: 'Colosse',
+    description: '+2 coeurs, mais -20 % de vitesse',
+    stackable: false,
+    apply: (s) => ({ ...s, maxHearts: s.maxHearts + 2, speed: s.speed - 0.2 }),
+  },
+  heavyArsenal: {
+    tier: 2,
+    name: 'Arsenal lourd',
+    description: '+2 bombes, mais -20 % de vitesse',
+    stackable: false,
+    apply: (s) => ({ ...s, maxBombs: s.maxBombs + 2, speed: s.speed - 0.2 }),
+  },
+  glassCannon: {
+    tier: 3,
+    name: 'Canon de verre',
+    description: '+2 portée et +1 bombe, mais -1 coeur',
+    stackable: false,
+    apply: (s) => ({ ...s, bombRange: s.bombRange + 2, maxBombs: s.maxBombs + 1, maxHearts: s.maxHearts - 1 }),
+  },
+  piercingFlames: {
+    tier: 3,
+    name: 'Flammes perforantes',
+    description: 'Les flammes traversent les obstacles',
+    stackable: false,
+    apply: (s) => ({ ...s, piercing: true }),
+  },
+  bigBang: {
+    tier: 3,
+    name: 'Big Bang',
+    description: '+3 portée, mais une mèche 50 % plus longue',
+    stackable: false,
+    apply: (s) => ({ ...s, bombRange: s.bombRange + 3, fuseMultiplier: s.fuseMultiplier * 1.5 }),
+  },
 });
 
 // ===========================================================================
@@ -237,6 +323,17 @@ function getExplosionCells(state, bomb) {
   return cells;
 }
 
+// Statistiques d'un joueur en début de manche : base + effets de ses
+// augments, puis application des limites minimales.
+function computeStats(augmentIds) {
+  const stats = augmentIds.reduce((current, id) => AUGMENTS[id].apply(current), { ...BASE_STATS });
+  return {
+    ...stats,
+    maxHearts: Math.max(MIN_HEARTS, stats.maxHearts),
+    speed: Math.max(MIN_SPEED, stats.speed),
+  };
+}
+
 function getMoveDelay(config, stats) {
   return Math.max(config.minMoveDelayMs, config.baseMoveDelayMs / stats.speed);
 }
@@ -265,6 +362,7 @@ function getResults(state) {
       roundWins: player.roundWins,
       kills: player.kills,
       deaths: player.deaths,
+      augments: [...player.augments],
       isWinner: player.id === state.winnerId,
     }))
     .sort((a, b) => b.score - a.score || b.roundWins - a.roundWins || b.kills - a.kills);
@@ -288,6 +386,16 @@ function getRoundRanking(state, roundWinnerId) {
       return { playerId: player.id, points: place + bonus };
     })
     .sort((a, b) => b.points - a.points);
+}
+
+// Catalogue des augments sans les fonctions, pour l'afficher côté client.
+function getAugmentCatalog() {
+  return Object.entries(AUGMENTS).map(([id, { tier, name, description }]) => ({
+    id,
+    tier,
+    name,
+    description,
+  }));
 }
 
 // ===========================================================================
@@ -531,6 +639,8 @@ function createPlayer(id, name) {
     invincibleUntil: 0,
     nextMoveAt: 0,
     input: { direction: null, bomb: false },
+    augments: [], // augments choisis, conservés toute la partie
+    augmentOffer: [], // augments proposés en phase « augment »
     inRound: false, // participe à la manche en cours
     eliminatedAt: null, // instant de l'élimination pendant la manche
     score: 0, // total des points de toutes les manches
@@ -570,9 +680,11 @@ function removePlayer(state, playerId) {
   if (player.alive) player.eliminatedAt = draft.time;
   player.connected = false;
   player.alive = false;
+  player.augmentOffer = [];
   emit(draft, 'playerLeft', { playerId });
 
   if (draft.phase === PHASE.PLAYING) checkRoundEnd(draft);
+  if (draft.phase === PHASE.AUGMENT) startRoundIfEveryoneChose(draft);
   return draft;
 }
 
@@ -613,7 +725,7 @@ function clearEvents(state) {
 }
 
 // ===========================================================================
-// Manches
+// Manches et augments
 // ===========================================================================
 
 function startRound(draft) {
@@ -629,7 +741,7 @@ function startRound(draft) {
 
   const spawns = getSpawnPositions(draft.config);
   draft.players.forEach((player, index) => {
-    const stats = { ...BASE_STATS };
+    const stats = computeStats(player.augments);
     Object.assign(player, spawns[index], {
       alive: player.connected,
       inRound: player.connected,
@@ -640,6 +752,7 @@ function startRound(draft) {
       invincibleUntil: 0,
       nextMoveAt: draft.time,
       input: { direction: null, bomb: false },
+      augmentOffer: [],
     });
   });
 
@@ -657,7 +770,7 @@ function checkRoundEnd(draft) {
   endRound(draft, roundWinner);
 }
 
-// Distribue les points de la manche, puis lance la manche suivante ou termine la
+// Distribue les points de la manche, puis passe aux augments ou termine la
 // partie si c'était la dernière manche (ou s'il ne reste qu'un joueur connecté).
 function endRound(draft, roundWinner) {
   const winnerId = roundWinner?.id ?? null;
@@ -678,7 +791,40 @@ function endRound(draft, roundWinner) {
     return;
   }
 
-  startRound(draft);
+  draft.phase = PHASE.AUGMENT;
+  for (const player of connected) {
+    player.augmentOffer = drawAugmentOffer(draft, player);
+  }
+}
+
+// Tire des augments différents, en excluant ceux que le joueur possède
+// déjà et qui ne se cumulent pas.
+function drawAugmentOffer(draft, player) {
+  const available = Object.keys(AUGMENTS).filter(
+    (id) => AUGMENTS[id].stackable || !player.augments.includes(id),
+  );
+  return shuffle(draft, available).slice(0, draft.config.augmentChoices);
+}
+
+function chooseAugment(state, playerId, augmentId) {
+  const player = getPlayer(state, playerId);
+  if (state.phase !== PHASE.AUGMENT || !player || !player.augmentOffer.includes(augmentId)) {
+    return state;
+  }
+
+  const draft = clone(state);
+  const draftPlayer = getPlayer(draft, playerId);
+  draftPlayer.augments.push(augmentId);
+  draftPlayer.augmentOffer = [];
+  emit(draft, 'augmentChosen', { playerId, augmentId });
+
+  startRoundIfEveryoneChose(draft);
+  return draft;
+}
+
+function startRoundIfEveryoneChose(draft) {
+  const isWaiting = draft.players.some((player) => player.augmentOffer.length > 0);
+  if (!isWaiting) startRound(draft);
 }
 
 // ===========================================================================
@@ -853,6 +999,8 @@ function applyAction(state, action = {}) {
       return startGame(state);
     case 'input':
       return setInput(state, action.playerId, action.input);
+    case 'chooseAugment':
+      return chooseAugment(state, action.playerId, action.augmentId);
     case 'tick':
       return tick(state, action.deltaMs);
     default:
@@ -872,12 +1020,14 @@ module.exports = {
   VEGETATION,
   DESTRUCTIBLES,
   POWER_UPS,
+  AUGMENTS,
   // actions (retournent un nouvel état)
   createGame,
   addPlayer,
   removePlayer,
   startGame,
   setInput,
+  chooseAugment,
   tick,
   clearEvents,
   applyAction,
@@ -887,7 +1037,9 @@ module.exports = {
   getBombAt,
   isWalkable,
   getExplosionCells,
+  computeStats,
   getSpawnPositions,
   getResults,
   getRoundRanking,
+  getAugmentCatalog,
 };
