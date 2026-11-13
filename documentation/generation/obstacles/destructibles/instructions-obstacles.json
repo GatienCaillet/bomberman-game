@@ -1,0 +1,25 @@
+{
+  "tool": "内置 image_gen",
+  "date": "2026-11-08",
+  "sourcePixelsPerTile": 320,
+  "visualTiles": {
+    "height": 1.2,
+    "width": 1
+  },
+  "imagePixels": {
+    "width": 320,
+    "height": 384
+  },
+  "prompts": [
+    {
+      "id": "cone",
+      "file": "03-cone.png",
+      "prompt": "Use case: precise-object-edit. Input image is the ORIGINAL STYLE AND OBJECT REFERENCE. Remake this destructible obstacle as a new sprite for the same Grenoble pixel-art Bomberman game.\nEXACT visual height:width =1.2:1 (canonical canvas320px wide x384px high, W:H=5:6). This object used to be1.5tiles high; redesign its proportions to be LOW and COMPACT rather than distorting a tall sprite. It occupies ONE square collision cell; only TOP64px (0.2tile) may rise into the cell above. Tight framing: visible object fills canvas width and extends from top to bottom. Original square-pixel rendering style, deliberately coarse pixel clusters, limited palette, clear outline, restrained highlights, TRUE TRANSPARENT background outside object. No ground plane, cast shadow outside sprite, text, grid, people or watermark. Orthographic straight-on view slightly from above, same camera as the reference.\nONE squat orange-red traffic cone with TWO broad white reflective bands and a sturdy SQUARE red rubber base plate visible from above. Top tapered tip at top-center, broad lower cone body, base is a true square-footprint slab, NOT a long vertical rectangular pedestal. Base plate and cone foot stay inside lower320x320 source region; top64px contains ONLY the cone tip/body, no base. Natural recognizable cone geometry, slightly worn rubber edges, no photorealism or glow."
+    },
+    {
+      "id": "bin",
+      "file": "04-poubelle.png",
+      "prompt": "Use case: precise-object-edit. This teal wheelie trash bin sprite has a GENERATION DEFECT: a black/transparent ragged HOLE in the center of its front body. Remove that hole completely and repaint it with the SAME SOLID TEAL PLASTIC as the rest of the bin, using coherent original square pixel clusters. The front body must be entirely opaque with no perforation, no black spot, no logo or symbol. Keep the lid, handles, two wheels, teal colors and pixel style.\nAlso compose the VISIBLE BIN to have exact HEIGHT:WIDTH=1.2:1, a naturally compact 320x384 proportion. Its complete visible silhouette must fill the canvas from top to bottom and side to side, with no large empty margin above the lid. Slightly lengthen the opaque rectangular BODY below the lid if needed; retain a normal squat wheeled bin and do not squash the lid or wheels. Actual transparency only OUTSIDE the bin's exterior silhouette. No cast shadow, ground, text, additional objects, glow or soft effects. Clean low resolution pixel-art game sprite."
+    }
+  ]
+}

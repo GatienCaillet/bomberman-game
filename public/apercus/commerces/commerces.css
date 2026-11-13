@@ -1,0 +1,150 @@
+/* Styles du module page-页面 / 模块样式 */
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 32px;
+  background: #202b3b;
+  color: #f6efe3;
+  font:
+    14px/1.65 system-ui,
+    sans-serif;
+}
+main {
+  max-width: 1400px;
+  margin: auto;
+}
+h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+p {
+  margin: 0 0 20px;
+  color: #c2cbd5;
+}
+a {
+  color: #e6c58b;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+button {
+  padding: 8px 18px;
+  border: 1px solid #6d7c8e;
+  border-radius: 4px;
+  background: #2e3b4d;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+button[aria-pressed='true'] {
+  background: #e6c58b;
+  border-color: #e6c58b;
+  color: #202b3b;
+}
+label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  cursor: pointer;
+}
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+figure {
+  margin: 0;
+  padding: 16px;
+  background: #293747;
+  border: 1px solid #3c4b5c;
+  border-radius: 6px;
+}
+.stage {
+  display: flex;
+  align-items: flex-end;
+  min-height: 240px;
+}
+.sprite {
+  position: relative;
+  width: calc(var(--columns) * 96px);
+  height: calc(var(--height) * 96px);
+  flex: none;
+  background: #344250;
+}
+img {
+  display: block;
+  image-rendering: pixelated;
+}
+.sprite img {
+  width: 100%;
+  height: 100%;
+}
+.grid .sprite::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(to right, #ef676fa8 0 1px, transparent 1px 96px),
+    repeating-linear-gradient(to top, #ef676fa8 0 1px, transparent 1px 96px);
+  border-right: 1px solid #ef676fa8;
+}
+figcaption {
+  margin-top: 12px;
+}
+strong {
+  font-size: 18px;
+  color: #ffe4b5;
+}
+small {
+  display: block;
+  color: #b2bfcd;
+  font-size: 12px;
+}
+.game-scale {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #405062;
+  min-height: 94px;
+}
+.game-scale img {
+  flex: none;
+  background: var(--image-integree-1);
+}
+.game-scale span {
+  color: #b2bfcd;
+  font-size: 11px;
+  line-height: 1.5;
+}
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 24px;
+}
+@media (max-width: 1420px) {
+  .gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  body {
+    padding: 16px;
+  }
+  .gallery {
+    grid-template-columns: 1fr;
+  }
+  h1 {
+    font-size: 23px;
+  }
+}

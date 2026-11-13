@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#72b3cc" />
+    <title>Fin de partie · Grenoble Bomber</title>
+
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="classement.css" />
+  </head>
+  <body>
+    <main class="game-screen screen-end">
+      <div
+        class="landscape"
+        style="background-image: url('ressources/fonds/grenoble-accueil.png')"
+        aria-hidden="true"
+      ></div>
+      <div class="cableway" aria-hidden="true">
+        <div class="cableway-train">
+          <div class="cableway-car">
+            <img
+              class="cableway-cabin"
+              src="ressources/decor/16-telepherique-grenoble.png"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="cableway-car">
+            <img
+              class="cableway-cabin"
+              src="ressources/decor/16-telepherique-grenoble.png"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="cableway-car">
+            <img
+              class="cableway-cabin"
+              src="ressources/decor/16-telepherique-grenoble.png"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="cableway-car">
+            <img
+              class="cableway-cabin"
+              src="ressources/decor/16-telepherique-grenoble.png"
+              alt=""
+              draggable="false"
+            />
+          </div>
+        </div>
+      </div>
+      <header class="topbar">
+        <a class="brand" href="index.html"
+          ><img src="ressources/bombes/fixes/06-bombe-ronde.png" alt="" /><span
+            >GRENOBLE<br />BOMBER</span
+          ></a
+        >
+        <!-- ==== 导航：返回欢迎页或进入独立排行榜页 / Navigation : accueil ou page du classement ==== -->
+        <nav class="top-nav" aria-label="Navigation principale">
+          <a href="index.html">ACCUEIL</a><a href="classement.html">CLASSEMENT ↗</a>
+        </nav>
+      </header>
+      <section class="menu" aria-labelledby="end-title">
+        <h1 id="end-title" class="menu-heading">
+          <span class="sr-only">Fin de partie</span
+          ><img
+            class="title-art"
+            src="ressources/interface/titres/02-titre-fin.png"
+            alt=""
+            width="768"
+            height="258"
+          />
+        </h1>
+        <p class="menu-kicker">LE CALME APRÈS LE BOUM.</p>
+        <p class="intro">Le trottoir s’en souviendra.</p>
+        <!-- ==== 结束页显示：本页无输入框，昵称由 fin.js 填入 / Fin : pas de saisie, pseudo rempli par fin.js ==== -->
+        <dl class="result-strip">
+          <div>
+            <dt>TON PSEUDO</dt>
+            <!-- ==== 昵称显示入口：#end-nickname / Zone d’affichage du pseudo : #end-nickname ==== -->
+            <dd id="end-nickname">Toi, la légende</dd>
+          </div>
+          <div>
+            <dt>RÉSULTAT</dt>
+            <!-- ==== 比赛结果显示入口：等待服务器接入 / Zone du résultat : en attente de l’intégration serveur ==== -->
+            <dd class="result-wait">En attente</dd>
+          </div>
+        </dl>
+        <!-- ==== 再玩按钮：普通链接返回欢迎页 / Rejouer : lien de retour à l’accueil ==== -->
+        <a class="pixel-button pixel-button--red" href="index.html"
+          ><span>UNE PETITE REVANCHE ?</span><span aria-hidden="true">↻</span></a
+        >
+        <!-- ==== 排行榜按钮：classement.js 监听此入口并调用 open() / Classement : ouvrir via classement.js ==== -->
+        <button class="secondary-button" type="button" data-scoreboard-open>
+          <span aria-hidden="true">★</span> VOIR LE CLASSEMENT
+        </button>
+        <!-- ==== 结束提示显示入口：.menu .message / Zone du message de fin : .menu .message ==== -->
+        <p class="message">Les bombes se reposent. Toi aussi ?</p>
+        <p class="menu-footnote">
+          Résultats en attente du serveur.<br />Le cône, lui, a déjà demandé sa revanche.
+        </p>
+      </section>
+      <div class="parade" aria-hidden="true">
+        <div class="parade-row parade-row--back">
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/02-arbre.png"
+              style="--size: 72px; --delay: 0s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/batiments/commerces/04-1x1.png"
+              style="--size: 70px; --delay: -0.31s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/manifestant/marche-profil/image-01.png"
+              />
+              <img
+                class="parade-sprite parade-sprite--flip"
+                src="ressources/personnages/animations/manifestant/marche-profil/animation.gif"
+                style="--size: 112px; --delay: -0.62s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/01-buisson.png"
+              style="--size: 57px; --delay: -0.93s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/02-arbre.png"
+              style="--size: 72px; --delay: -1.24s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/batiments/commerces/02-1x2.png"
+              style="--size: 104px; --delay: -1.55s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/policier/marche-profil/image-01.png"
+              />
+              <img
+                class="parade-sprite parade-sprite--flip"
+                src="ressources/personnages/animations/policier/marche-profil/animation.gif"
+                style="--size: 112px; --delay: -1.86s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/01-buisson.png"
+              style="--size: 57px; --delay: -2.17s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/02-arbre.png"
+              style="--size: 72px; --delay: -2.48s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/batiments/commerces/04-1x1.png"
+              style="--size: 70px; --delay: -2.79s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/manifestant/marche-profil/image-01.png"
+              />
+              <img
+                class="parade-sprite parade-sprite--flip"
+                src="ressources/personnages/animations/manifestant/marche-profil/animation.gif"
+                style="--size: 112px; --delay: -3.1s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/vegetation/01-buisson.png"
+              style="--size: 57px; --delay: -3.41s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+        </div>
+        <div class="parade-row parade-row--front">
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/manifestant/repos-face/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/personnages/animations/manifestant/repos-face/animation.gif"
+                style="--size: 118px; --delay: 0s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/destructibles/03-cone.png"
+              style="--size: 59px; --delay: -0.31s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--flip parade-sprite--bob"
+              src="ressources/interface/personnages-comiques/policier-cone.png"
+              style="--size: 85px; --delay: -0.62s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/bombes/animations/bombe-ronde/combustion/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/bombes/animations/bombe-ronde/combustion/animation.gif"
+                style="--size: 65px; --delay: -0.93s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/policier/repos-face/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/personnages/animations/policier/repos-face/animation.gif"
+                style="--size: 118px; --delay: -1.24s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/destructibles/04-poubelle.png"
+              style="--size: 59px; --delay: -1.55s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--flip parade-sprite--bob"
+              src="ressources/interface/personnages-comiques/cache-poubelle.png"
+              style="--size: 111px; --delay: -1.86s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/bombes/animations/bombe-cylindrique/combustion/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/bombes/animations/bombe-cylindrique/combustion/animation.gif"
+                style="--size: 52px; --delay: -2.17s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/manifestant/repos-face/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/personnages/animations/manifestant/repos-face/animation.gif"
+                style="--size: 118px; --delay: -2.48s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <img
+              class="parade-sprite parade-sprite--bob"
+              src="ressources/obstacles/destructibles/03-cone.png"
+              style="--size: 59px; --delay: -2.79s"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/personnages/animations/policier/repos-face/image-01.png"
+              />
+              <img
+                class="parade-sprite parade-sprite--flip"
+                src="ressources/personnages/animations/policier/repos-face/animation.gif"
+                style="--size: 118px; --delay: -3.1s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+          <div class="parade-slot">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcset="ressources/bombes/animations/bombe-ronde/combustion/image-01.png"
+              />
+              <img
+                class="parade-sprite"
+                src="ressources/bombes/animations/bombe-ronde/combustion/animation.gif"
+                style="--size: 65px; --delay: -3.41s"
+                alt=""
+                draggable="false"
+              />
+            </picture>
+          </div>
+        </div>
+      </div>
+      <p class="screen-caption">ON RANGE LES BOMBES. ON GARDE LES SOUVENIRS.</p>
+    </main>
+
+    <!-- ==== 显示调用：读取已保存昵称并更新页面 / Affichage : lire le pseudo enregistré et actualiser la page ==== -->
+    <script src="js/fin.js"></script>
+    <!-- ==== 排行榜调用：绑定按钮并提供 window.Scoreboard / Classement : boutons et interface publique ==== -->
+    <!-- ==== 排名数据：先于面板脚本加载 / Données : charger avant le panneau ==== -->
+    <script src="data/classement-data.js"></script>
+    <script src="js/classement.js"></script>
+  </body>
+</html>
