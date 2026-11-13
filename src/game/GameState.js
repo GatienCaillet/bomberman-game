@@ -402,11 +402,24 @@ function getAugmentCatalog() {
 // Génération de la carte
 // ===========================================================================
 //
-// La carte est décrite deux fois :
-//  - state.map[y][x] : le type de chaque case (TILE), utilisé par les règles ;
-//  - state.objects : les éléments à dessiner. Chaque objet occupe le
-//    rectangle [x, x + width[ × [y, y + height[ (coin haut-gauche en x, y)
-//    et indique son image dans « sprite » (chemin dans public/ressources/).
+// La carte est décrite deux fois, car les règles et le dessin n'ont pas
+// besoin des mêmes informations :
+//
+//  1. state.map[y][x] : une grille qui donne le type de chaque case
+//     (TILE.EMPTY, TILE.WALL ou TILE.OBSTACLE). Les règles (collisions,
+//     explosions) ne lisent que cette grille.
+//
+//  2. state.objects : la liste des éléments à dessiner (bâtiments, arbres,
+//     buissons, cônes, poubelles). Exemple :
+//       { kind: 'row2Tall', x: 6, y: 8, width: 2, height: 2,
+//         sprite: 'batiments/logements/05-2x2.png', shop: null, ... }
+//     (x, y) est la case en haut à gauche de l'élément ; il couvre
+//     « width » cases vers la droite et « height » cases vers le bas.
+//     « sprite » est le chemin de son image dans public/ressources/.
+//
+// Un bâtiment de 2 × 2 est donc UN objet dans state.objects, mais occupe
+// QUATRE cases TILE.WALL dans state.map. Quand un obstacle est détruit, il
+// est retiré des deux en même temps (voir destroyObstacle).
 
 function isInPlayArea(config, { x, y }) {
   return x > 0 && y > 0 && x < config.width - 1 && y < config.height - 1;
