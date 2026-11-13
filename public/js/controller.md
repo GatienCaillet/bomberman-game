@@ -2,13 +2,18 @@
 角色控制器案例 / Exemple de contrôleur de personnage
 
 中文说明
-这个文件是角色控制器的案例，加载动画和简单操作，用于测试。
-将 md 改为 js，即可使用。
+这是一个角色控制器案例，用于测试素材在移动、动画和交互时的流畅性。
+为了不影响其他人的开发，特意保留为 .md 文件，不接入正式游戏。
+如果需要复用这段 JavaScript 代码，将扩展名改为 .js 即可使用；
+public/apercus/jeu/jeu.html 已引用 controller.js，可用于测试。
 
 Présentation en français
-Ce fichier est un exemple de contrôleur de personnage : il charge les animations
-et propose des commandes simples pour les tests.
-Remplacer l’extension .md par .js pour l’utiliser.
+Ce contrôleur est un exemple destiné à tester la fluidité des déplacements,
+des animations et des interactions avec les ressources graphiques.
+Il est volontairement conservé en .md, sans être intégré au jeu,
+pour ne pas interférer avec le développement des autres membres de l’équipe.
+Pour réutiliser ce code JavaScript, il suffit de remplacer l’extension .md par .js ;
+public/apercus/jeu/jeu.html référence déjà controller.js pour les tests.
 
 操作：方向键 / WASD 移动，空格放炸弹，V 放障碍物，C 切换排行榜。
 Commandes : flèches / WASD pour se déplacer, Espace pour poser une bombe,
