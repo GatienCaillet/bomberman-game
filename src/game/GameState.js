@@ -1,9 +1,10 @@
-'use strict';
-
 /**
  * GameState : les règles du jeu Bomberman (Pôle 3, logique côté serveur).
  *
  * Utilisation par le serveur temps réel (Pôle 5) :
+ *
+ *   import { createGame, addPlayer, startGame, setInput, tick, clearEvents, chooseAugment }
+ *     from './game/GameState.js';
  *
  *   let state = createGame({ seed: Date.now(), config: { totalRounds: 5 } });
  *   state = addPlayer(state, { id: socket.id, name: 'Alice' });
@@ -1021,7 +1022,7 @@ function applyAction(state, action = {}) {
   }
 }
 
-module.exports = {
+export {
   // constantes
   TILE,
   PHASE,
