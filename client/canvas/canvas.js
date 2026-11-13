@@ -1,3 +1,5 @@
+import socket from "../socket/socket.js";
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -150,6 +152,7 @@ function drawExplosions() {
 //     for (let y = 0; y < gameState.map.length; y++) {
 
 
+function renderGame() {
 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 // Dessiner la carte
@@ -163,6 +166,22 @@ drawExplosions();
 
 // Dessiner les passages
 // drawPassages();
-
+}
 //demarcher dessiner
 renderGame();
+
+//claver les touches du clavier pour le déplacement des joueurs
+document.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowUp") {
+        socket.emit("move", { direction: "up" });
+    } else if (event.key === "ArrowDown") {
+        socket.emit("move", { direction: "down" });
+    } else if (event.key === "ArrowLeft") {
+        socket.emit("move", { direction: "left" });
+    } else if (event.key === "ArrowRight") {
+        socket.emit("move", { direction: "right" });
+    } else if (event.key === "Space") {
+        event.preventDefault(); // Empêche le défilement de la page
+        socket.emit("player_imput", { action: "place_bomb" });
+    }
+});
