@@ -65,4 +65,20 @@ body {
 
   font-size: 13px;
   line-height: 1.2;
+
+  width: 110px;
+  height: 70px;
 }
+
+/* #lives {
+  display: block;
+
+    min-width: 125px;
+    height: 24px;
+
+    text-align: center;
+    white-space: nowrap;
+
+    font-size: 20px;
+    line-height: 24px;
+} */

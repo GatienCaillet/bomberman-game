@@ -8,10 +8,11 @@ if (!canvas) {
 const ctx = canvas.getContext("2d");
 
 const message = document.getElementById("message");
+const deathMessage = document.getElementById("die");
 
 const TILE_SIZE = 40;
 const LOCAL_STORAGE_KEY = "bombermanGameState";
-const LOCAL_PLAYER_ID = "p3";
+const LOCAL_PLAYER_ID = "p2";
 
 
 // 0: Passage
@@ -39,7 +40,8 @@ const gameState = {
             x: 1,
             y: 1,
             color: "#38bdf8",
-            lives: 10,
+            lives: 5,
+            score: 0,
             alive: true
         },
         {
@@ -47,7 +49,8 @@ const gameState = {
             x: 5,
             y: 5,
             color: "#ef4444",
-            lives: 10,
+            lives: 5,
+            score: 0,
             alive: true
         },
         {
@@ -55,7 +58,8 @@ const gameState = {
             x: 9,
             y: 9,
             color: "#10b981",
-            lives: 10,
+            lives: 5,
+            score: 0,
             alive: true
         },
         {
@@ -63,7 +67,8 @@ const gameState = {
             x: 1,
             y: 9,
             color: "#f59e0b",
-            lives: 10,
+            lives: 5,
+            score: 0,
             alive: true
         }
     ],
@@ -77,6 +82,98 @@ const gameState = {
 //Taille de CANVAS en fonction de la taille de la map
 canvas.width = gameState.map[0].length * TILE_SIZE;
 canvas.height = gameState.map.length * TILE_SIZE;
+
+//mettre a jour les vies affichees dans le panneau d'information
+
+// Mettre à jour les informations du joueur local
+// Mettre à jour les informations du joueur local
+// Mettre à jour les informations du joueur local
+function updatePlayerInfo() {
+    const localPlayer = gameState.players.find(
+        player => player.id === LOCAL_PLAYER_ID
+    );
+
+    if (!localPlayer) {
+        return;
+    }
+
+    // Mettre à jour le nom
+    const nameElement =
+        document.getElementById("name");
+
+    if (nameElement) {
+        nameElement.textContent =
+            localPlayer.name || localPlayer.id;
+    }
+
+    // Mettre à jour le score
+    const scoreElement =
+        document.getElementById("score");
+
+    if (scoreElement) {
+        scoreElement.textContent =
+            `Score: ${formatScore(localPlayer.score)}`;
+    }
+
+    // Mettre à jour les coeurs
+    const livesElement =
+        document.getElementById("lives");
+
+    if (livesElement) {
+        livesElement.textContent =
+            "❤️".repeat(Math.max(0, localPlayer.lives));
+    }
+
+    // Afficher le symbole de mort uniquement si le joueur est mort
+    if (deathMessage) {
+        deathMessage.style.display =
+            localPlayer.alive ? "none" : "inline";
+    }
+}
+
+// // Afficher les nombres entiers et les demi-points
+// function formatScore(score) {
+//     if (Number.isInteger(score)) {
+//         return String(score);
+//     }
+
+//     return score.toFixed(1);
+// }
+
+// Ajouter des points à un joueur
+function addScore(playerId, points) {
+    const player = gameState.players.find(
+        player => player.id === playerId
+    );
+
+    if (!player) {
+        return;
+    }
+
+    player.score += points;
+}
+
+// Afficher les nombres entiers et les demi-points
+function formatScore(score) {
+    if (Number.isInteger(score)) {
+        return String(score);
+    }
+
+    return score.toFixed(1);
+}
+
+// Ajouter des points à un joueur
+function addScore(playerId, points) {
+    const player = gameState.players.find(
+        player => player.id === playerId
+    );
+
+    if (!player) {
+        return;
+    }
+
+    player.score += points;
+}
 
 // dessiner la carte
 function drawMap() {
@@ -140,16 +237,6 @@ function drawPlayers() {
             player.id,
             pixelX + 12,
             pixelY + 24
-        );
-
-        // Afficher le nombre de vies
-        ctx.fillStyle = "black";
-        ctx.font = "12px Arial";
-
-        ctx.fillText(
-            `Vies: ${player.lives}`,
-            pixelX - 2,
-            pixelY - 5
         );
 
     });
@@ -223,6 +310,9 @@ function renderGame() {
     drawBombs();
     drawExplosions();
     drawPlayers();
+
+    updatePlayerInfo();
+
 }
 
 // verifier si jouer peut passer
@@ -340,10 +430,13 @@ function placeBomb() {
     // créer une bombe à la position du joueur
     const bomb = {
         x: player.x,
-        y: player.y
+        y: player.y,
+        ownerId: player.id
     }
 
     gameState.bombs.push(bomb);
+
+    
 
     renderGame();
 
@@ -360,43 +453,67 @@ function placeBomb() {
 }
 
 // Retirer une vie aux joueurs touchés par l'explosion
-    function damagePlayers(explosionCells){
-        for(const player of gameState.players){
-            if (!player.alive){
-                continue;
-            }
+function damagePlayers(explosionCells, ownerId) {
+    const owner = gameState.players.find(
+        player => player.id === ownerId
+    );
 
-            const isTouched = explosionCells.some(
-                explosion =>
-                    explosion.x === player.x &&
-                    explosion.y === player.y
-            );
-
-            if(!isTouched){
-                continue;
-            }
-
-            // Le jouer perd une vie
-
-            player.lives = player.lives - 1;
-
-            if(message){
-                message.textContent = 
-                `${player.id} a perdu une vie`;
-            }
-            
-            // Mort apres cinq explosions
-            if(player.lives <= 0){
-                player.lives = 0;
-                player.alive = false;
-
-                if(message){
-                    message.textContent = `${player.id} est mort`;
-                }
-            }
-
+    for (const player of gameState.players) {
+        if (!player.alive) {
+            continue;
         }
+
+        const isTouched = explosionCells.some(
+            explosion =>
+                explosion.x === player.x &&
+                explosion.y === player.y
+        );
+
+        if (!isTouched) {
+            continue;
+        }
+
+        console.log(
+            `${player.id} est touche. vies avant :`,
+            player.lives
+        );
+
+       // Le joueur perd une vie
+        player.lives = Math.max(
+            0,
+            player.lives - 1
+        );
+
+        // Le joueur touché perd 0.5 point
+        player.score -= 0.5;
+
+        // Un joueur ennemi touché rapporte des points au propriétaire
+        if (owner && player.id !== ownerId) {
+            if (player.lives <= 0) {
+                // Joueur ennemi éliminé : +2 points
+                owner.score += 2;
+            } else {
+                // Joueur ennemi touché : +1 point
+                owner.score += 1;
+            }
+        }
+
+        // Le joueur meurt après cinq dégâts
+        if (player.lives <= 0) {
+            player.lives = 0;
+            player.alive = false;
+
+            if (message) {
+                message.textContent =
+                    `${player.id} est mort`;
+            }
+        }
+        console.log(
+            `${player.id} vies après :`,
+            player.lives
+        );
     }
+}
 
 // Faire exploser une bombe
 function explodeBomb(bomb) {
@@ -407,6 +524,8 @@ function explodeBomb(bomb) {
             y: bomb.y
         }
     ];
+
+    let destroyedWalls = 0;
 
     const directions = [
         { x: 0, y: -1 }, // Vers le haut
@@ -453,10 +572,16 @@ function explodeBomb(bomb) {
             // Un mur destructible est détruit, puis l'explosion s'arrête dans cette direction
             if (tile === 2) {
                 gameState.map[y][x] = 0;
+                destroyedWalls++ ;
                 break;
             }
         }
     }
+    // Gagner 0.5 point pour chaque mur detruit
+    addScore(
+        bomb.ownerId,
+        destroyedWalls * 0.5
+    );
 
     // Supprimer la bombe qui vient d'exploser
     gameState.bombs = gameState.bombs.filter(
@@ -466,43 +591,13 @@ function explodeBomb(bomb) {
     // Ajouter les cases à la liste des explosions
     gameState.explosions.push(...explosionCells);
 
-    damagePlayers(explosionCells);
+    damagePlayers(
+        explosionCells,
+        bomb.ownerId
+    );
 
     renderGame();
 
-    // Vérifier quels joueurs sont touchés
-    for (const player of gameState.players) {
-        if (!player.alive) {
-            continue;
-        }
-
-        const isTouched = explosionCells.some(
-            explosion =>
-                explosion.x === player.x &&
-                explosion.y === player.y
-        );
-
-        if (isTouched) {
-            player.lives--;
-
-            if (message) {
-                message.textContent =
-                    `${player.id} a perdu une vie`;
-            }
-
-            //le jouer meurt quand il n'a plus de vie
-            if (player.lives <= 0) {
-                player.lives = 0;
-                player.alive = false;
-
-                if (message) {
-                    message.textContent = `${player.id} est mort`;
-                }
-            }
-        }
-    }
-
-    
     // Afficher immédiatement le résultat
     renderGame();
 
