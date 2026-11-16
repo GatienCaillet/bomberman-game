@@ -7,12 +7,17 @@ if (!canvas) {
 
 const ctx = canvas.getContext("2d");
 
+//recuper les item de html
 const message = document.getElementById("message");
 const deathMessage = document.getElementById("die");
 
 const TILE_SIZE = 40;
 const LOCAL_STORAGE_KEY = "bombermanGameState";
 const LOCAL_PLAYER_ID = "p2";
+
+//charger ressources d'art
+// const bombImage = new Image();
+// bombImage.onload = 
 
 
 // 0: Passage
@@ -42,6 +47,7 @@ const gameState = {
             color: "#38bdf8",
             lives: 5,
             score: 0,
+            speed: randomSpeed(),
             alive: true
         },
         {
@@ -51,6 +57,7 @@ const gameState = {
             color: "#ef4444",
             lives: 5,
             score: 0,
+            speed: randomSpeed(),
             alive: true
         },
         {
@@ -59,6 +66,7 @@ const gameState = {
             y: 9,
             color: "#10b981",
             lives: 5,
+            speed: randomSpeed(),
             score: 0,
             alive: true
         },
@@ -68,6 +76,7 @@ const gameState = {
             y: 9,
             color: "#f59e0b",
             lives: 5,
+            speed: randomSpeed(),
             score: 0,
             alive: true
         }
@@ -85,8 +94,6 @@ canvas.height = gameState.map.length * TILE_SIZE;
 
 //mettre a jour les vies affichees dans le panneau d'information
 
-// Mettre à jour les informations du joueur local
-// Mettre à jour les informations du joueur local
 // Mettre à jour les informations du joueur local
 function updatePlayerInfo() {
     const localPlayer = gameState.players.find(
@@ -114,6 +121,16 @@ function updatePlayerInfo() {
         scoreElement.textContent =
             `Score: ${formatScore(localPlayer.score)}`;
     }
+
+    // Mettre a jour la vitesse
+    const vitesseElement =
+        document.getElementById("speed");
+
+    if (vitesseElement) {
+        vitesseElement.textContent =
+            "⚡️".repeat(localPlayer.speed);
+    }
+
 
     // Mettre à jour les coeurs
     const livesElement =
@@ -147,6 +164,11 @@ function formatScore(score) {
     }
 
     return score.toFixed(1);
+}
+
+//avoir vitesse de jouers differents: 1-3
+function randomSpeed() {
+    return Math.floor(Math.random() * 3) + 1;
 }
 
 // Ajouter des points à un joueur
@@ -330,7 +352,7 @@ function canWalk(x, y) {
         return false;
     }
 
-    // indierct si racontere autre jouer
+    // indierct si raconter autre jouer
     const otherPlayerExists = gameState.players.some(
         player =>
             player.id !== LOCAL_PLAYER_ID &&
@@ -356,34 +378,44 @@ function movePlayer(direction) {
         return;
     }
 
+    const speed = player.speed || 1; //verifier si player.speed est valide, sinon la vitesse par defaut est 1
 
     let newX = player.x;
-    let newY = player.y;
+    let newY = player.y; // mettre a jour la position
 
-    if (direction === "up") {
-        newY--;
-    }
 
-    if (direction === "down") {
-        newY++;
-    }
+    //vitesse different
+    for (let i = 0; i < speed; i++) {
+        let nextX = newX;
+        let nextY = newY;
 
-    if (direction === "left") {
-        newX--;
-    }
 
-    if (direction === "right") {
-        newX++;
-    }
-
-    if (!canWalk(newX, newY)) {
-        if (message) {
-            message.textContent = "chemin indirect";
+        if (direction === "up") {
+            nextY--;
         }
 
-        return;
-    }
+        if (direction === "down") {
+            nextY++;
+        }
 
+        if (direction === "left") {
+            nextX--;
+        }
+
+        if (direction === "right") {
+            nextX++;
+        }
+
+        if (!canWalk(nextX, nextY)) {
+            if (message) {
+                message.textContent = "chemin indirect";
+            }
+
+            break;
+        }
+        newX = nextX;
+        newY = nextY;
+    }
     // local test: pisition de jouer
     player.x = newX;
     player.y = newY;
@@ -423,7 +455,7 @@ function placeBomb() {
 
     gameState.bombs.push(bomb);
 
-    
+
 
     renderGame();
 
@@ -465,7 +497,7 @@ function damagePlayers(explosionCells, ownerId) {
             player.lives
         );
 
-       // Le joueur perd une vie
+        // Le joueur perd une vie
         player.lives = Math.max(
             0,
             player.lives - 1
@@ -559,7 +591,7 @@ function explodeBomb(bomb) {
             // Un mur destructible est détruit, puis l'explosion s'arrête dans cette direction
             if (tile === 2) {
                 gameState.map[y][x] = 0;
-                destroyedWalls++ ;
+                destroyedWalls++;
                 break;
             }
         }
