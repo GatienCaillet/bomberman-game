@@ -1,4 +1,5 @@
 import socket from "../socket/socket.js";
+import * as art from "./canvas_art.js";
 
 const canvas = document.getElementById("gameCanvas");
 if (!canvas) {
@@ -12,32 +13,74 @@ const message = document.getElementById("message");
 const deathMessage = document.getElementById("die");
 
 const TILE_SIZE = 40;
+const MAP_WIDTH = 60;
+const MAP_HEIGHT = 40;
+
 const LOCAL_STORAGE_KEY = "bombermanGameState";
-const LOCAL_PLAYER_ID = "p2";
+const LOCAL_PLAYER_ID = "p3";
 
-//charger ressources d'art
-// const bombImage = new Image();
-// bombImage.onload = 
+//charger ressources graphiques
+const image = {};
+function loadImage(name, path) {
+    const img = new Image();
 
+    img.onload = () => {
+        renderGame();
+    };
+
+    img.onerror = () => {
+        console.log("Image introuvable :", path);
+    };
+
+    img.src = path;
+    image[name] = img;
+}
+
+//sol
+loadImage("floor", new URL("../../Ressources/" + art.ASSETS.floor, import.meta.url).href);
+
+// Références graphiques uniquement : aucune modification de la carte.
+loadImage("bomb", new URL("../../Ressources/" + art.ASSETS.bomb, import.meta.url).href);
+for (const path of [...art.BUILDINGS, ...art.DESTRUCTIBLES]) {
+    loadImage(path, new URL("../../Ressources/" + path, import.meta.url).href);
+}
+let playerLayer = null;
+const playerSprites = {};
 
 // 0: Passage
 // 1: Mur
 // 2: Mur destructible
 
+
+
+// Créer la carte sans dépendre du fichier de références graphiques.
+function generateMap(width, height) {
+    const map = Array.from({ length: height }, (_, y) =>
+        Array.from({ length: width }, (_, x) => {
+            if (x === 0 || y === 0 || x === width - 1 || y === height - 1 ||
+                (x % 2 === 0 && y % 2 === 0)) return 1;
+            return Math.random() < 0.15 ? 2 : 0;
+        })
+    );
+    // Garder libres les positions initiales et leurs sorties.
+    for (const p of [{ x: 1, y: 1 }, { x: 5, y: 5 }, { x: 9, y: 9 }, { x: 1, y: 9 }]) {
+        for (const d of [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]) {
+            const x = p.x + d.x, y = p.y + d.y;
+            if (x > 0 && x < width - 1 && y > 0 && y < height - 1) map[y][x] = 0;
+        }
+    }
+    return map;
+}
+
 const gameState = {
-    map: [
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1],
-        [1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 1],
-        [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1],
-        [1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 1],
-        [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    ],
+    map: generateMap(MAP_WIDTH, MAP_HEIGHT),
+
+    camera: {
+        x: 0,
+        y: 0,
+        width: 700,
+        height: 500
+    },
 
     players: [
         {
@@ -89,8 +132,10 @@ const gameState = {
 };
 
 //Taille de CANVAS en fonction de la taille de la map
-canvas.width = gameState.map[0].length * TILE_SIZE;
-canvas.height = gameState.map.length * TILE_SIZE;
+canvas.width = gameState.camera.width;
+canvas.height = gameState.camera.height;
+canvas.style.height = canvas.height + "px";
+canvas.parentElement.style.height = canvas.height + "px";
 
 //mettre a jour les vies affichees dans le panneau d'information
 
@@ -157,6 +202,21 @@ function updatePlayerInfo() {
 //     return score.toFixed(1);
 // }
 
+//mettre a jour de la position de la camera
+function updateCamera() {
+    const player = gameState.players.find(player => player.id === LOCAL_PLAYER_ID);
+    if (!player) return;
+    const camera = gameState.camera;
+    camera.x = Math.max(0, Math.min(
+        (player.x + 0.5) * TILE_SIZE - canvas.width / 2,
+        gameState.map[0].length * TILE_SIZE - canvas.width
+    ));
+    camera.y = Math.max(0, Math.min(
+        (player.y + 0.5) * TILE_SIZE - canvas.height / 2,
+        gameState.map.length * TILE_SIZE - canvas.height
+    ));
+}
+
 // Afficher les nombres entiers et les demi-points
 function formatScore(score) {
     if (Number.isInteger(score)) {
@@ -189,30 +249,23 @@ function drawMap() {
     for (let y = 0; y < gameState.map.length; y++) {
         for (let x = 0; x < gameState.map[y].length; x++) {
             const tile = gameState.map[y][x];
-
-            const pixelX = x * TILE_SIZE;
-            const pixelY = y * TILE_SIZE;
-
-            //dessiner le passage
-            if (tile === 0) {
-                ctx.fillStyle = "#ffffff";
-                ctx.fillRect(pixelX, pixelY, TILE_SIZE, TILE_SIZE);
+            const pixelX = x * TILE_SIZE, pixelY = y * TILE_SIZE;
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(pixelX, pixelY, TILE_SIZE, TILE_SIZE);
+            if (image.floor.complete && image.floor.naturalWidth > 0) {
+                ctx.drawImage(image.floor, pixelX, pixelY, TILE_SIZE, TILE_SIZE);
             }
-            //dessiner la maille de la carte
-            ctx.strokeStyle = "#000000";
-            ctx.strokeRect(pixelX, pixelY, TILE_SIZE, TILE_SIZE);
-
-            if (tile === 1) {
-                // Dessiner un mur
-                ctx.fillStyle = "#8b4513";
+            if (tile === 0) continue;
+            // Garder le type de collision existant : 1 = bâtiment, 2 = obstacle.
+            const paths = tile === 1 ? art.BUILDINGS : art.DESTRUCTIBLES;
+            const img = image[paths[(x * 7 + y * 3) % paths.length]];
+            if (img.complete && img.naturalWidth > 0) {
+                const scale = Math.min(TILE_SIZE / img.naturalWidth, TILE_SIZE / img.naturalHeight);
+                const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
+                ctx.drawImage(img, pixelX + (TILE_SIZE - width) / 2, pixelY + TILE_SIZE - height, width, height);
+            } else {
+                ctx.fillStyle = tile === 1 ? "#8b4513" : "#d2b48c";
                 ctx.fillRect(pixelX, pixelY, TILE_SIZE, TILE_SIZE);
-            } else if (tile === 2) {
-                // Dessiner un mur destructible
-                ctx.fillStyle = "#d2b48c";
-                ctx.fillRect(pixelX + 2, pixelY + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-
-                ctx.strokeStyle = "#713f12";
-                ctx.strokeRect(pixelX + 7, pixelY + 7, TILE_SIZE - 14, TILE_SIZE - 14);
             }
         }
     }
@@ -220,60 +273,48 @@ function drawMap() {
 
 // dessiner les joueurs
 function drawPlayers() {
-    gameState.players.forEach(player => {
-        if (!player.alive) return; // Ne pas dessiner les joueurs morts
-
-        const pixelX = player.x * TILE_SIZE;
-        const pixelY = player.y * TILE_SIZE;
-
-        //dessiner la figure du joueur
-        ctx.strokeStyle = player.color;
-        ctx.strokeRect(pixelX + 5, pixelY + 5, TILE_SIZE - 10, TILE_SIZE - 10);
-
-        //dessiner le couteur du jouer
-
-        ctx.fillStyle = player.color;
-        ctx.fillRect(pixelX + 7, pixelY + 7, TILE_SIZE - 14, TILE_SIZE - 14);//dessiner les yeux du joueur
-        ctx.fillStyle = "white";
-        ctx.fillRect(pixelX + 10, pixelY + 10, 4, 4);
-        ctx.fillRect(pixelX + TILE_SIZE - 14, pixelY + 10, 4, 4);
-
-        //afficher l'identifiant du jouer
-        ctx.fillStyle = "white";
-        ctx.font = "12px Arail";
-
-        ctx.fillText(
-            player.id,
-            pixelX + 12,
-            pixelY + 24
-        );
-
+    // Une simple couche d'images conserve l'animation native des GIF.
+    if (!playerLayer) {
+        playerLayer = document.createElement("div");
+        playerLayer.style.cssText = "position:absolute;overflow:hidden;pointer-events:none;z-index:2";
+        canvas.parentElement.appendChild(playerLayer);
+    }
+    const box = canvas.getBoundingClientRect(), parent = canvas.parentElement.getBoundingClientRect();
+    const sx = canvas.clientWidth / canvas.width, sy = canvas.clientHeight / canvas.height;
+    Object.assign(playerLayer.style, {
+        left: box.left - parent.left + canvas.clientLeft + "px",
+        top: box.top - parent.top + canvas.clientTop + "px",
+        width: canvas.clientWidth + "px", height: canvas.clientHeight + "px"
     });
-
-    //dessiner les yeux des joueurs
-    ctx.fillStyle = "white";
-
-    //dessiner frame blanc
-    ctx.strokeStyle = "white";
-    ctx.linewidth = 2;
-
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
-
-    //afficher numero de joueur
-    gameState.players.forEach(player => {
-        const pixelX = player.x * TILE_SIZE;
-        const pixelY = player.y * TILE_SIZE;
-        ctx.fillStyle = "white";
-        ctx.font = "12px Arial";
-        ctx.fillText(player.id, pixelX + 5, pixelY + 15);
+    gameState.players.forEach((player, index) => {
+        let sprite = playerSprites[player.id];
+        if (!sprite) {
+            sprite = document.createElement("img");
+            const character = index % 2 ? art.CHARACTERS.police : art.CHARACTERS.protester;
+            sprite.src = new URL("../../Ressources/" + character.idle, import.meta.url).href;
+            sprite.alt = player.id;
+            sprite.style.cssText = "position:absolute;object-fit:contain;image-rendering:pixelated";
+            playerLayer.appendChild(sprite);
+            playerSprites[player.id] = sprite;
+        }
+        Object.assign(sprite.style, {
+            display: player.alive ? "block" : "none",
+            left: (player.x * TILE_SIZE - gameState.camera.x) * sx + "px",
+            top: (player.y * TILE_SIZE - gameState.camera.y) * sy + "px",
+            width: TILE_SIZE * sx + "px", height: TILE_SIZE * sy + "px"
+        });
     });
 }
 
 //dessiner les bombes
 function drawBombs() {
     gameState.bombs.forEach(bomb => {
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(bomb.x * TILE_SIZE, bomb.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        if (image.bomb.complete && image.bomb.naturalWidth > 0) {
+            ctx.drawImage(image.bomb, bomb.x * TILE_SIZE, bomb.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        } else {
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(bomb.x * TILE_SIZE, bomb.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
     });
 }
 
@@ -308,6 +349,7 @@ function drawExplosions() {
 
 // dessiner jeu general
 function renderGame() {
+    updateCamera();
     ctx.clearRect(
         0,
         0,
@@ -315,11 +357,17 @@ function renderGame() {
         canvas.height
     );
 
+    ctx.save();
+    ctx.translate(-gameState.camera.x, -gameState.camera.y);
     drawMap();
     drawBombs();
     drawExplosions();
     drawPlayers();
 
+    ctx.restore();
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
     updatePlayerInfo();
 
 }
@@ -533,9 +581,50 @@ function damagePlayers(explosionCells, ownerId) {
         );
     }
 }
+// Verifier la resultat
+let gamefinished = false;
+
+function checkResult() {
+    if (gamefinished) {
+        return;
+    }
+
+    const localPlayer = gameState.players.find(
+        player => player.id === LOCAL_PLAYER_ID
+    );
+
+    if (!localPlayer) return;
+
+    const alivePlayers = gameState.players.filter(
+        player => player.alive && player.lives > 0
+    ); if (alivePlayers.length <= 1) {
+        gamefinished = true;
+
+        if (message) {
+            message.textContent = alivePlayers.length === 0
+                ? "Match nul"
+                : alivePlayers[0].id === localPlayer.id
+                    ? "Vous avez gagné !"
+                    : `${alivePlayers[0].id} a gagné !`;
+        }
+    }
+}
+
+function showResult(result) {
+    gamefinished = true;
+
+    const resultBloc = document.getElementById("game-result");
+    const title = docum
+
+if (message) {
+        message.textContent = result;
+    }
+}
+
 
 // Faire exploser une bombe
 function explodeBomb(bomb) {
+    if (!gameState.bombs.includes(bomb)) return;
     // La case centrale de l'explosion
     const explosionCells = [
         {
@@ -615,21 +704,13 @@ function explodeBomb(bomb) {
         bomb.ownerId
     );
 
-    renderGame();
-
     // Afficher immédiatement le résultat
     renderGame();
 
     // Supprimer l'effet visuel après 500 millisecondes
     setTimeout(() => {
         gameState.explosions =
-            gameState.explosions.filter(explosion => {
-                return !explosionCells.some(
-                    cell =>
-                        cell.x === explosion.x &&
-                        cell.y === explosion.y
-                );
-            });
+            gameState.explosions.filter(explosion => !explosionCells.includes(explosion));
 
         renderGame();
     }, 500);
