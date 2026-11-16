@@ -1,0 +1,1 @@
+// Schéma Mongoose pour les joueurs (Pôle 4)

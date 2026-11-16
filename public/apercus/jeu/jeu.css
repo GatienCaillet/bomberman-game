@@ -1,0 +1,107 @@
+/* ==== HTML 案例布局 / Mise en page de la démonstration HTML ==== */
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100svh;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  background: #202b3b;
+  color: #fff0c7;
+  font-family: 'Courier New', monospace;
+}
+.demo {
+  width: min(100%, 1088px);
+}
+.game-board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--cols) / var(--rows);
+  overflow: hidden;
+  background-repeat: repeat;
+  background-size: calc(100% / var(--cols)) calc(100% / var(--rows));
+  border: 2px solid #486075;
+}
+.game-board:focus-visible {
+  outline: 3px solid #f5dc9d;
+  outline-offset: 4px;
+}
+/* 格子分界线：两层渐变按格子尺寸重复，在每格右下边缘各画一条细线。
+   Lignes de la grille : deux dégradés répétés à la taille d’une case
+   tracent un filet au bord droit et au bord bas de chaque case. */
+.game-board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      to right,
+      transparent calc(100% - 1px),
+      rgba(0, 0, 0, 0.25) calc(100% - 1px)
+    ),
+    linear-gradient(
+      to bottom,
+      transparent calc(100% - 1px),
+      rgba(0, 0, 0, 0.25) calc(100% - 1px)
+    );
+  background-size:
+    calc(100% / var(--cols)) 100%,
+    100% calc(100% / var(--rows));
+}
+.scene-object {
+  position: absolute;
+  left: calc(var(--x) * 100% / var(--cols));
+  top: calc(var(--y) * 100% / var(--rows));
+  width: calc(100% / var(--cols));
+  height: calc(var(--h, 1) * 100% / var(--rows));
+  object-fit: contain;
+  image-rendering: pixelated;
+  user-select: none;
+  pointer-events: none;
+}
+.player {
+  z-index: 2;
+  object-fit: cover;
+  /* --x/--y 指向角色脚下的格子：底边对齐该格底边，身体向上延伸 --h 格。
+     --x/--y désigne la case sous les pieds : le bas du personnage s’aligne
+     sur le bas de cette case et le corps s’étend de --h cases vers le haut. */
+  top: calc((var(--y) + 1) * 100% / var(--rows) - var(--h, 1) * 100% / var(--rows));
+  /* 控制器逐帧更新位置，避免 CSS 过渡叠加造成拖延。
+     Le contrôleur interpole la position à chaque image. */
+}
+.bomb {
+  --sprite-x: 9.375%;
+  --sprite: url('../../ressources/bombes/animations/bombe-ronde/combustion/bande-animation.png');
+  z-index: 1;
+  /* 容器中心对齐格子中心。 / Centrer sur la case. */
+  left: calc((var(--x) + 0.5) * 100% / var(--cols));
+  top: calc((var(--y) + 0.5) * 100% / var(--rows));
+  transform: translate(-50%, -50%);
+}
+.bomb[data-type='bombe-cylindrique'] {
+  --h: 1.5;
+  --sprite-x: 17.1875%;
+  --sprite: url('../../ressources/bombes/animations/bombe-cylindrique/combustion/bande-animation.png');
+}
+.bomb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* 校正素材中弹体的位置；引线向上伸出，所有帧共用同一锚点。
+     Centrer le corps de la bombe ; la mèche dépasse vers le haut. */
+  transform: translate(var(--sprite-x), -21.875%);
+  background-image: var(--sprite);
+  background-size: 800% 100%;
+  background-repeat: no-repeat;
+  background-position: calc(var(--frame, 0) * 100% / 7) 0;
+  image-rendering: pixelated;
+}
+.obstacle {
+  --h: 1.2;
+  z-index: 1;
+  top: calc((var(--y) + 1 - var(--h)) * 100% / var(--rows));
+}

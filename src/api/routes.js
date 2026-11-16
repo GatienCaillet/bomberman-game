@@ -1,0 +1,1 @@
+// Routes Express comme GET /api/scores (Pôle 4)

@@ -1,0 +1,21 @@
+/* Styles du module page-页面 / 模块样式 */
+body {
+  margin: 16px;
+  font-family: sans-serif;
+}
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+a {
+  padding: 8px 12px;
+  border: 1px solid #aaa;
+  border-radius: 2px;
+  color: #111;
+  text-decoration: none;
+}
+a:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}

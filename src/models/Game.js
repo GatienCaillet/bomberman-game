@@ -1,0 +1,1 @@
+// Schéma Mongoose pour les parties (Pôle 4)
