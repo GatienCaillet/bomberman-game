@@ -82,3 +82,29 @@ body {
     font-size: 20px;
     line-height: 24px;
 } */
+
+#game-result {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    padding: 40px 60px;
+    background: rgba(15, 23, 42, 0.96);
+    border: 3px solid #facc15;
+    border-radius: 15px;
+    text-align: center;
+    color: white;
+}
+
+#game-result[hidden] {
+    display: none !important;
+}
+
+.result-title.win {
+    color: #facc15;
+}
+
+.result-title.lose {
+    color: #ef4444;
+}

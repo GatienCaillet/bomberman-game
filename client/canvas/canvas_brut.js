@@ -149,6 +149,7 @@ function updatePlayerInfo() {
         return;
     }
 
+
     // Mettre à jour le nom
     const nameElement =
         document.getElementById("name");
@@ -369,6 +370,7 @@ function renderGame() {
     ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, canvas.width, canvas.height);
     updatePlayerInfo();
+    checkResult();
 
 }
 
@@ -418,6 +420,9 @@ function canWalk(x, y) {
 
 // jouer local mouvememt
 function movePlayer(direction) {
+    if(gamefinished){
+        return;
+    }
     const player = gameState.players.find(
         player => player.id === LOCAL_PLAYER_ID
     );
@@ -478,6 +483,9 @@ function movePlayer(direction) {
 
 // local placer bombe
 function placeBomb() {
+    if(gamefinished){
+        return;
+    }
     const player = gameState.players.find(
         player => player.id === LOCAL_PLAYER_ID
     );
@@ -597,29 +605,66 @@ function checkResult() {
 
     const alivePlayers = gameState.players.filter(
         player => player.alive && player.lives > 0
-    ); if (alivePlayers.length <= 1) {
+    );
+
+    //defait: le jouer local est mort
+    if (!localPlayer.alive || localPlayer.lives <= 0) {
+        gamefinished = true;
+        showResult("LOSE");
+        return;
+    }
+
+    //victoire: le jouer local est le dernier survivant 
+
+    if (alivePlayers.length === 1 &&
+        alivePlayers[0].id === localPlayer.id) {
         gamefinished = true;
 
-        if (message) {
-            message.textContent = alivePlayers.length === 0
-                ? "Match nul"
-                : alivePlayers[0].id === localPlayer.id
-                    ? "Vous avez gagné !"
-                    : `${alivePlayers[0].id} a gagné !`;
-        }
+        showResult("WIN");
+        return;
     }
 }
+
+
 
 function showResult(result) {
     gamefinished = true;
 
     const resultBloc = document.getElementById("game-result");
-    const title = docum
+    const title = document.getElementById("result-title");
+    const message = document.getElementById("result-message");
 
-if (message) {
-        message.textContent = result;
+
+    //afficher le resultat
+    if (!resultBloc || !title) {
+        return;
     }
+
+    resultBloc.hidden = false;
+
+    if (result === "WIN") {
+        title.textContent = "VICTOIRE";
+        title.className = "result-title win";
+        if (message) {
+            message.textContent = "Vous avez gagné !";
+        }
+    } else {
+        title.textContent = "DÉFAITE";
+        title.className = "result-title lose";
+        if (message) {
+            message.textContent = "Vous avez perdu.";
+        }
+    }
+    document.body.classList.add("game-over");
+    setTimeout(() => {
+        resultBloc.hidden = true;
+        document.body.classList.remove("game-over");
+    }, 10000);
 }
+
+
+
+
 
 
 // Faire exploser une bombe
@@ -704,6 +749,9 @@ function explodeBomb(bomb) {
         bomb.ownerId
     );
 
+    //Verifier la victoitr ou la defaite
+    checkResult();
+
     // Afficher immédiatement le résultat
     renderGame();
 
@@ -726,6 +774,14 @@ document.addEventListener("keydown", event => {
     };
 
     const direction = directionKeys[event.key];
+
+     // Arrêter les contrôles après la fin du jeu
+    if (gamefinished) {
+        if (direction || event.code === "Space") {
+            event.preventDefault();
+        }
+        return;
+    }
 
     if (direction) {
         event.preventDefault();
