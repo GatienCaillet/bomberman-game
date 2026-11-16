@@ -1,4 +1,4 @@
-// import socket from "../socket/socket.js";
+import socket from "../socket/socket.js";
 
 const canvas = document.getElementById("gameCanvas");
 if (!canvas) {
@@ -139,19 +139,6 @@ function updatePlayerInfo() {
 
 //     return score.toFixed(1);
 // }
-
-// Ajouter des points à un joueur
-function addScore(playerId, points) {
-    const player = gameState.players.find(
-        player => player.id === playerId
-    );
-
-    if (!player) {
-        return;
-    }
-
-    player.score += points;
-}
 
 // Afficher les nombres entiers et les demi-points
 function formatScore(score) {
