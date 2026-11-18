@@ -108,3 +108,32 @@ body {
 .result-title.lose {
     color: #ef4444;
 }
+
+#game-result {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+
+    width: 350px;
+    max-width: 90vw;
+    padding: 30px;
+
+    background: rgba(15, 23, 42, 0.96);
+    border: 2px solid #facc15;
+    border-radius: 15px;
+
+    color: white;
+    text-align: center;
+}
+
+#game-result[hidden] {
+    display: none !important;
+}
+
+.final-info {
+    margin-top: 20px;
+    text-align: left;
+    line-height: 2;
+}

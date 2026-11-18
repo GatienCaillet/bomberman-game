@@ -626,9 +626,14 @@ function checkResult() {
 }
 
 
-
 function showResult(result) {
     gamefinished = true;
+
+     const player = gameState.players.find(
+        p => p.id === LOCAL_PLAYER_ID
+    );
+
+    if (!player) return;
 
     const resultBloc = document.getElementById("game-result");
     const title = document.getElementById("result-title");
@@ -655,8 +660,21 @@ function showResult(result) {
             message.textContent = "Vous avez perdu.";
         }
     }
+     // Afficher uniquement les informations du joueur local
+    document.getElementById("final-name").textContent =
+        `Joueur : ${player.name || player.id}`;
+
+    document.getElementById("final-score").textContent =
+        `Score : ${formatScore(player.score)}`;
+
+    document.getElementById("final-speed").textContent =
+        `Vitesse : ${"⚡".repeat(player.speed || 1)}`;
+
+    document.getElementById("final-lives").textContent =
+        `Vies : ${"❤️".repeat(Math.max(0, player.lives)) || "0"}`;
+
     document.body.classList.add("game-over");
-    setTimeout(() => {
+        setTimeout(() => {
         resultBloc.hidden = true;
         document.body.classList.remove("game-over");
     }, 10000);
