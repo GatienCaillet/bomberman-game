@@ -1,30 +1,34 @@
 // Initialisation Node.js/Socket.io, gestion des salons et boucle de jeu (Pôle 5)
 
-//Pour pôle 4, pour ...
+
+//Pour pôle 4, pour les routes API + connexion Mongoose
 
 //imports
-const mongoose = require('mongoose');
-const express = require('express');
-const Game = require('./models/Game');
+//const mongoose = require('mongoose');
+//const express = require('express');
+//const apiRoutes = require('./api/routes');
+
+import express from 'express';
+import mongoose from 'mongoose';
+import apiRoutes from './api/routes.js';
 
 const app = express();
 
-// temporaire, simplement pour tester la connectivité
-const fauxScores = [
-  { pseudo: "Joueur1", score: 500 },
-  { pseudo: "Alice", score: 1200 }
-];
-
-
-app.get('/api/scores', (req, res) => {
-  // Quand quelqu'un visite cette URL, on renvoie le tableau en format JSON
-  res.json(fauxScores);
-});
-
-
+//connexion Mongoose
 mongoose.connect('mongodb://127.0.0.1:27017/bomberman')
   .then(() => {
     console.log('Connexion à MongoDB réussie !');
+    })
+
+  .catch(error => {
+    console.error('Connexion à MongoDB échouée :', error.message);
+  });
+
+  app.use('/api', apiRoutes);
+
+  app.listen(3000, () => {
+  console.log("Le serveur API est lancé ! Va sur http://localhost:3000/api/scores");
+});
 
  /*à modifier en une fonction pour pôle 5    
     const maPartie = new Game({
@@ -40,12 +44,3 @@ mongoose.connect('mongodb://127.0.0.1:27017/bomberman')
         console.error("Erreur lors de la sauvegarde :", err);
       });
 */
-  })
-
-  .catch(error => {
-    console.error('Connexion à MongoDB échouée :', error.message);
-  });
-
-app.listen(3000, () => {
-  console.log("Le serveur API est lancé ! Va sur http://localhost:3000/api/scores");
-});
