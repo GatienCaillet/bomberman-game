@@ -3,7 +3,11 @@ const mongoose = require('mongoose');
 
 const gameSchema = mongoose.Schema({ 
     roomName: String,
-    players: Number,
+    players: {
+        type: Number,
+        min: 1,
+        max: 4
+    },
     winner: String,
     duration: Number
 });
