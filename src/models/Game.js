@@ -1,5 +1,7 @@
 // Schéma Mongoose pour les parties (Pôle 4)
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
+
+//const mongoose = require('mongoose');
 
 const gameSchema = mongoose.Schema({ 
     roomName: String,
@@ -12,4 +14,4 @@ const gameSchema = mongoose.Schema({
     duration: Number
 });
 
-module.exports = mongoose.model('Game', gameSchema);
+export default mongoose.model('Game', gameSchema);
