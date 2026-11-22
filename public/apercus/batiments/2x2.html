@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>2×2 格住宅与甜品店 · Grenoble Bomber</title>
+    <link rel="stylesheet" href="2x2.css" />
+  </head>
+  <body>
+    <main>
+      <nav>
+        <a href="../index.html">所有预览</a><a href="batiments.html">住宅素材</a
+        ><a href="../commerces/commerces.html">商店素材</a>
+      </nav>
+      <h1>2×2 格住宅与甜品店</h1>
+      <p>
+        与原建筑共用比例：每格 256×256 px，占地 2 行 × 2 列，屋顶高出半格。两张 PNG 均为
+        <strong>512×640 px</strong>，透明背景。
+      </p>
+      <div class="controls">
+        <label
+          >显示比例
+          <select id="echelle">
+            <option value="32">游戏尺寸 · 每格 32 px</option>
+            <option value="128" selected>对照尺寸 · 每格 128 px</option>
+            <option value="256">原图 1:1 · 每格 256 px</option>
+          </select></label
+        >
+        <label><input id="grille" type="checkbox" checked />显示占格线</label>
+        <span>黄虚线以上为屋顶半格；每个绘画像素为 4×4 px。</span>
+      </div>
+      <section class="gallery" aria-label="新增素材">
+        <figure>
+          <div class="stage">
+            <div class="sprite">
+              <img
+                id="logement"
+                src="../../ressources/batiments/logements/06-2x2.png"
+                width="512"
+                height="640"
+                alt="杏色灰泥、青绿百叶窗和红瓦屋顶的双层住宅"
+              />
+            </div>
+          </div>
+          <figcaption>
+            <h2>06-2x2.png · 住宅</h2>
+            <p>512×640 px · 占地 2×2 格</p>
+            <a href="../../ressources/batiments/logements/06-2x2.png" download>下载住宅 PNG</a>
+          </figcaption>
+        </figure>
+        <figure>
+          <div class="stage">
+            <div class="sprite">
+              <img
+                id="commerce"
+                src="../../ressources/batiments/commerces/09-2x2.png"
+                width="512"
+                height="640"
+                alt="同一栋住宅的一层改为绿色木框、条纹遮阳篷的甜品店"
+              />
+            </div>
+          </div>
+          <figcaption>
+            <h2>09-2x2.png · 甜品店</h2>
+            <p>512×640 px · 占地 2×2 格</p>
+            <a href="../../ressources/batiments/commerces/09-2x2.png" download>下载商店 PNG</a>
+          </figcaption>
+        </figure>
+      </section>
+      <p class="verification" id="verification" role="status">正在核对像素对应关系…</p>
+      <h2>与原有素材同格、同底线对照</h2>
+      <section class="gallery references" aria-label="原有素材对照">
+        <figure>
+          <div class="stage">
+            <div class="sprite">
+              <img
+                src="../../ressources/batiments/logements/05-2x2.png"
+                width="512"
+                height="640"
+                alt="原有赭黄居民楼"
+              />
+            </div>
+          </div>
+          <figcaption>原有住宅 · 512×640 px</figcaption>
+        </figure>
+        <figure>
+          <div class="stage">
+            <div class="sprite">
+              <img
+                src="../../ressources/batiments/commerces/03-2x2.png"
+                width="512"
+                height="640"
+                alt="原有服装店"
+              />
+            </div>
+          </div>
+          <figcaption>原有商店 · 512×640 px</figcaption>
+        </figure>
+      </section>
+      <p class="note">
+        统一按“序号-占地大小.png”命名，大小为占地行数 × 列数。两栋均为 2×2
+        格；屋顶不计入名称，图片含屋顶为 512×640 像素。
+      </p>
+    </main>
+    <script src="2x2.js"></script>
+  </body>
+</html>

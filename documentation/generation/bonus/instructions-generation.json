@@ -1,0 +1,46 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-11-12",
+  "purpose": "Trois bonus statiques pour Grenoble Bomber / 三种升级道具静态素材",
+  "output": {
+    "directory": "public/ressources/bonus",
+    "width": 256,
+    "height": 256,
+    "logicalPixels": 64,
+    "pixelScale": 4,
+    "alpha": "0 ou 255 / 二值透明"
+  },
+  "styleReferences": {
+    "mode": "Images inspectées visuellement ; style décrit dans les prompts / 已目视检查，以文字描述风格",
+    "files": [
+      "public/ressources/bombes/animations/bombe-ronde/combustion/image-01.png",
+      "public/ressources/obstacles/destructibles/03-cone.png",
+      "public/ressources/personnages/animations/policier/repos-face/image-01.png",
+      "public/ressources/batiments/logements/06-2x2.png"
+    ]
+  },
+  "export": "export-sprites.swift : échantillonnage au plus proche en 64×64, alpha au seuil 0,5, palette déterministe sans tramage, agrandissement entier ×4 / 最近邻采样到64×64，透明阈值0.5，无抖动确定性减色，整倍数放大4倍",
+  "prompts": [
+    {
+      "id": "capacite-bombes",
+      "file": "01-capacite-bombes.png",
+      "transparentBackground": true,
+      "colors": 16,
+      "prompt": "Use case: stylized-concept.\nAsset type: ONE production-ready transparent pickup sprite for the existing Grenoble Bomber pixel-art game.\nStyle reference from the inspected game assets: deliberately coarse square pixel clusters; round navy-charcoal bomb with small ivory upper-left highlight and ochre rope fuse, red-orange traffic cone with dark stepped outline, small navy uniform character, warm terracotta and apricot Grenoble architecture with muted teal accents. Match this restrained, handmade low-resolution game art, not a polished mobile icon.\nStyle/medium: genuine low-resolution pixel-art sprite designed on a logical 64x64 artwork grid. Uniform clearly visible square pixels, hard staircase edges and flat small color clusters; simple 3-tone shading per material. If rendering at 1024x1024, each artwork pixel is exactly a 16x16 square. Clean restrained dark navy outline of 1-2 artwork pixels. Lighting from upper left. No antialiasing, gradients, soft glow, blur, texture noise or tiny subpixel details.\nComposition: square transparent canvas, a single centered compact readable collectible with its complete silhouette in frame, occupying approximately 76% of the canvas width and height, balanced empty margins. View from front, slightly from above, matching the existing game's simple orthographic sprites. No floating UI panel, tile, badge, card border, circular background, plinth, ground, shadow outside the object, landscape, scene, label, caption, letters, watermark or extra objects. TRUE TRANSPARENT alpha outside the sprite. Readable when drawn at 32x32. Static image, no animation or sprite sheet.\nKeep all three collectibles in a coherent set with the same pixel scale, dark outline and visual weight.\n\nSubject: BOMB CAPACITY UPGRADE. One chunky navy-charcoal spherical bomb, compact ochre fuse curved up to the right, a tiny angular amber spark, ivory highlight on upper left. A SINGLE bold mint-teal PLUS SIGN overlaps the bomb's lower-right quadrant, with a dark navy outline separating it from the body, unmistakable at a glance. The plus is a simple symbol, no numerals or text. Match the reference game's round bomb design, making this clearly distinguishable from a live bomb by the large green plus. Overall silhouette remains compact and balanced."
+    },
+    {
+      "id": "portee-flammes",
+      "file": "02-portee-flammes.png",
+      "transparentBackground": true,
+      "colors": 10,
+      "prompt": "Use case: stylized-concept.\nAsset type: ONE production-ready transparent pickup sprite for the existing Grenoble Bomber pixel-art game.\nStyle reference from the inspected game assets: deliberately coarse square pixel clusters; round navy-charcoal bomb with small ivory upper-left highlight and ochre rope fuse, red-orange traffic cone with dark stepped outline, small navy uniform character, warm terracotta and apricot Grenoble architecture with muted teal accents. Match this restrained, handmade low-resolution game art, not a polished mobile icon.\nStyle/medium: genuine low-resolution pixel-art sprite designed on a logical 64x64 artwork grid. Uniform clearly visible square pixels, hard staircase edges and flat small color clusters; simple 3-tone shading per material. If rendering at 1024x1024, each artwork pixel is exactly a 16x16 square. Clean restrained dark navy outline of 1-2 artwork pixels. Lighting from upper left. No antialiasing, gradients, soft glow, blur, texture noise or tiny subpixel details.\nComposition: square transparent canvas, a single centered compact readable collectible with its complete silhouette in frame, occupying approximately 76% of the canvas width and height, balanced empty margins. View from front, slightly from above, matching the existing game's simple orthographic sprites. No floating UI panel, tile, badge, card border, circular background, plinth, ground, shadow outside the object, landscape, scene, label, caption, letters, watermark or extra objects. TRUE TRANSPARENT alpha outside the sprite. Readable when drawn at 32x32. Static image, no animation or sprite sheet.\nKeep all three collectibles in a coherent set with the same pixel scale, dark outline and visual weight.\n\nSubject: BLAST RANGE UPGRADE. One bold compact flame emblem made of crisp square pixel clusters: burnt red outer edges, vivid red-orange body, golden amber inner flame, small pale butter-yellow core. Three asymmetrical flame tongues rising upward, tallest central tongue leaning slightly right; broad compact base, no separate sparks. A restrained dark navy outline consistent with the other two collectibles. Strong simple recognizable flame silhouette, slightly dimensional through flat pixel clusters. This is the collectible fire symbol, not a full explosion or an animated flame."
+    },
+    {
+      "id": "vitesse",
+      "file": "03-vitesse.png",
+      "transparentBackground": true,
+      "colors": 16,
+      "prompt": "Use case: stylized-concept.\nAsset type: ONE production-ready transparent pickup sprite for the existing Grenoble Bomber pixel-art game.\nStyle reference from the inspected game assets: deliberately coarse square pixel clusters; round navy-charcoal bomb with small ivory upper-left highlight and ochre rope fuse, red-orange traffic cone with dark stepped outline, small navy uniform character, warm terracotta and apricot Grenoble architecture with muted teal accents. Match this restrained, handmade low-resolution game art, not a polished mobile icon.\nStyle/medium: genuine low-resolution pixel-art sprite designed on a logical 64x64 artwork grid. Uniform clearly visible square pixels, hard staircase edges and flat small color clusters; simple 3-tone shading per material. If rendering at 1024x1024, each artwork pixel is exactly a 16x16 square. Clean restrained dark navy outline of 1-2 artwork pixels. Lighting from upper left. No antialiasing, gradients, soft glow, blur, texture noise or tiny subpixel details.\nComposition: square transparent canvas, a single centered compact readable collectible with its complete silhouette in frame, occupying approximately 76% of the canvas width and height, balanced empty margins. View from front, slightly from above, matching the existing game's simple orthographic sprites. No floating UI panel, tile, badge, card border, circular background, plinth, ground, shadow outside the object, landscape, scene, label, caption, letters, watermark or extra objects. TRUE TRANSPARENT alpha outside the sprite. Readable when drawn at 32x32. Static image, no animation or sprite sheet.\nKeep all three collectibles in a coherent set with the same pixel scale, dark outline and visual weight.\n\nSubject: MOVEMENT SPEED UPGRADE. ONE chunky low-top hiking/running boot in clear side profile, toe pointing right, recalling a practical Grenoble mountain-town shoe. Muted sage-teal leather upper, deeper petrol-teal shadow, warm ochre cuff and two bold ochre lace pixels, cream-tan sole with dark navy tread. Short ankle, substantial rounded toe. Two short simple horizontal pale golden speed strokes immediately behind the heel, integrated into the same compact silhouette. Small limited palette, dark navy stepped outline, same visual weight as a bomb and flame pickup. No wings, no leg, no second shoe, no lettering."
+    }
+  ]
+}

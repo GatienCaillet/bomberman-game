@@ -1,0 +1,38 @@
+{
+  "outil": "image_gen integre puis calibrage Python autorise par le proprietaire",
+  "date": "2026-11-11",
+  "emprise": {
+    "lignes": 2,
+    "colonnes": 2
+  },
+  "dimensionsPixels": {
+    "largeur": 512,
+    "hauteur": 640
+  },
+  "pixelsParCase": 256,
+  "pixelsParPointDeDessin": 4,
+  "hauteurToitPixels": 128,
+  "logement": "public/ressources/batiments/logements/06-2x2.png",
+  "commerce": "public/ressources/batiments/commerces/09-2x2.png",
+  "zoneCommerce": {
+    "x": 32,
+    "y": 352,
+    "largeur": 448,
+    "hauteur": 284
+  },
+  "verification": {
+    "ecartsHorsCommerce": 0,
+    "pixelsModifiesDansCommerce": 127232,
+    "alphaIdentique": true,
+    "alphaBinaire": true,
+    "blocsUniformes4x4": true
+  },
+  "sources": {
+    "logement": "/Users/guziyang/.codex/generated_images/01a1cbe0-ff45-79b1-9ef8-d6d725f77543/exec-2991f5ab-51c0-4a66-b22b-8a9717077c2d.png",
+    "commerce": "/Users/guziyang/.codex/generated_images/01a1cbe0-ff45-79b1-9ef8-d6d725f77543/exec-2f303e2f-ad21-494a-bd4e-ad9b9dd48ace.png"
+  },
+  "prompts": {
+    "logement": "Use case: stylized-concept.\nAsset type: NEW transparent pixel-art residential building sprite in the existing Grenoble Bomber game set.\nInput1 (512x640 ochre house) is the EXACT CAMERA, TILE SCALE, PIXEL SCALE AND CANVAS GEOMETRY reference. Input2 (512x384 wide cream house) is a PALETTE and arch/window proportion reference. Do not overwrite either reference.\nCreate ONE NEW TWO-STOREY Grenoble townhouse, warmly muted APRICOT/CREAM plaster, pale limestone openings, blue-gray side stone courses, desaturated teal wooden shutters, terracotta roof with two small chimneys. Make its architecture recognizable as a NEW building: TWO tall upper windows in balanced bays, a centered narrow arched residential door and two ground-floor windows, pale masonry band dividing storeys. No balcony, no three-window upper row copied from Input1. Match the original's flat chunky charming pixel art. Natural tall doors and windows, adequate plaster between openings, no stretched or squashed geometry.\nCRITICAL final sprite extent: EXACTLY 512px WIDE and640px HIGH (portrait WIDTH:HEIGHT=4:5), 2 tiles wide and2.5tiles visually high. The building OCCUPIES2x2collision tiles; a half-tile roof rises above the footprint. TOP128px are roof/chimneys, LOWER512px are two full facade floors. Pixel coordinates measured at final512x640: horizontal roof-eave at y128; floor-divider approximately y368..384; bottom foundation flush y640. Facade rectangle spans x0..511. Complete roof/chimneys included, body touches both sides and bottom. No large transparent framing or padding.\nArtwork pixel scale: 128x160 logical pixels, nearest-neighbor enlargement4x to512x640. Every art pixel must become a uniform4x4 output block aligned from x0/y0, hard binary alpha. Same 1tile=256output pixels as reference, same door/window size, no extra microdetails. Limited palette with large flat clusters, crisp hard edges. No antialias, smooth gradients, blurry shadows, photorealistic texture or finely detailed illustration.\nCamera: flat straight-on slightly above, roof front slope visible, parallel eaves and horizontal base, NO visible side wall, NO isometric angle.\nOutput: one complete isolated building on TRUE transparent alpha outside silhouette, opaque facade, no transparent holes, no external shadows or colored alpha fringe. No ground, pavement, plants, people, street furniture, grid, measurement annotations, letters, watermarks or additional buildings. Intended to pair with a shop variant where ONLY the lower storey changes; preserve a simple outer stone frame and clear divider.\n",
+    "commerce": "Use case: precise-object-edit.\nAsset type: complete transparent512x640PNG building sprite, registered shop version of the new apricot residence.\nInput1 is the EXACT EDIT TARGET, a finished512x640pixel sprite. Input2 is a STYLE REFERENCE for a stocked commercial facade only. Keep the target's exact extent and proportions.\nPrimary request: change ONLY the ground floor to a French PATISSERIE. Warm sage-green painted wood storefront, cream little cake pictogram sign (no words), burgundy/cream striped shallow awning, natural tall central glazed entrance, well-stocked windows of layered cakes, little fruit tarts, macarons in jars, warm amber shop lights. Preserve large readable clustered pixel-art merchandise at game scale, avoid noisy tiny realistic details.\nPIXEL INVARIANTS: keep all of input1 from y0 through y351 EXACTLY unchanged: roofs, chimneys, eaves, two upper shuttered windows, apricot plaster, cream horizontal stringcourse. Keep exterior masonry on x0..31 and x480..511 identical; keep bottom row y636..639 identical. Only edit rectangular ground-floor interior x32..479 and y352..635. The new storefront including sign and awning must fit fully inside this rectangle with flat top below the divider. No details should cross above y352; the two upstairs windows and all roof pixels MUST remain unchanged. Output remains512wide640high, same silhouette and baseline. Return whole building, not a facade-only layer or two images.\nStyle: exactly the source's128x160logical pixels enlarged4x with nearest neighbor; uniform aligned4x4output pixel blocks, binary alpha, palette and camera matched. Hard flat pixel clusters; NO antialiasing, fuzzy edges, smooth gradients, realism or extra small pixels. Natural undistorted doors and shop window proportions.\nGround-floor windows and door of the target are replaced within the edit area. Maintain true transparent outside silhouette, solid opaque facade; no external shadows, halo, background, pavement, furniture, plants, people, lettering, labels, watermark, grids or extra structures. Keep roof/upper storey/edge stonework unchanged. The user requires one-to-one pixel correspondence between residential and shop versions outside the shop region.\n"
+  }
+}
