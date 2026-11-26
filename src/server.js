@@ -2,31 +2,18 @@
 
 
 //Pour pôle 4, pour les routes API + connexion Mongoose
-
-//imports
-//const mongoose = require('mongoose');
-//const express = require('express');
-//const apiRoutes = require('./api/routes');
-
 import express from 'express';
 import mongoose from 'mongoose';
 import apiRoutes from './api/routes.js';
 
 const app = express();
 
-//connexion Mongoose
-mongoose.connect('mongodb://127.0.0.1:27017/bomberman')
-  .then(() => {
-    console.log('Connexion à MongoDB réussie !');
-    })
+//connexion à MongoDB
+connectDB();
 
-  .catch(error => {
-    console.error('Connexion à MongoDB échouée :', error.message);
-  });
+app.use('/api', apiRoutes);
 
-  app.use('/api', apiRoutes);
-
-  app.listen(3000, () => {
+app.listen(3000, () => {
   console.log("Le serveur API est lancé ! Va sur http://localhost:3000/api/scores");
 });
 
