@@ -3,8 +3,9 @@
 
 //Pour pôle 4, pour les routes API + connexion Mongoose
 import express from 'express';
-import mongoose from 'mongoose';
 import apiRoutes from './api/routes.js';
+import { connectDB } from './db/connect.js';
+
 
 const app = express();
 
