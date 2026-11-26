@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bomberman</title>
+    <link rel="stylesheet" href="canvas.css">
+    <script type="module" src="canvas_brut.js"></script>
+</head>
+
+<body>
+    <main id="game-page">
+        <h1 id="game-over" style="display: none;">Game Over</h1>
+        <div class="game-container">
+            <canvas id="gameCanvas" width="700" height="700">
+            </canvas>
+
+            <div class="game-info">
+                <span id="name">Player 1</span>
+                <span id="score">0</span>
+                <span id="speed">⚡️</span>
+                <span id="lives">❤️❤️❤️❤️❤️</span>
+                <span id="die">💀</span>
+
+            </div>
+
+            <div id="game-result" hidden>
+                <h1 id="result-title"></h1>
+                <p id="result-message"></p>
+
+                <!-- <h2>Résultat final</h2>
+
+                <table id="final-ranking">
+                    <thead>
+                        <tr>
+                            <th>Joueur</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-body"></tbody>
+                </table> -->
+            </div>
+
+        </div>
+
+    </main>
+</body>
+
+</html>
