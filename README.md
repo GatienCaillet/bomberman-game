@@ -1,26 +1,32 @@
 # Grenoble Bomber
 
-Projet de Bomberman en équipe. Cette branche fournit les interfaces web,
-les ressources graphiques et sonores, ainsi que des exemples pour les tester.
-Les connexions réseau, les résultats de partie et les scores réels restent à intégrer.
+Jeu multijoueur inspiré de Bomberman (jusqu'à 4 joueurs), développé en Node.js, Express, Socket.io et MongoDB.
 
-## Aperçu des interfaces
+## Prérequis
 
-Avec Python 3, depuis la racine du dépôt (aucune compilation nécessaire) :
+- **Node.js** (v20+ recommandé, ES Modules activés)
+- **MongoDB Community Server** installé et lancé en arrière-plan *(optionnel pour tester uniquement le front-end : le serveur démarre même si MongoDB est éteint)*
 
-```sh
-python3 -m http.server 8000 --directory public
+## Installation et lancement
+
+```bash
+npm install
+node src/server.js
+#Avec MongoDB Atlas (.env)
+node --env-file=.env src/server.js
+```
+Le serveur est accessible sur http://localhost:3000. (API des scores : http://localhost:3000/api/scores).
+
+### Tests automatisés
+Les tests utilisent le lanceur intégré de Node (node --test) et s'exécutent automatiquement via GitHub Actions à chaque Pull Request :
+
+```bash
+npm test
 ```
 
-Ouvrir [l’accueil](http://localhost:8000/), [la fin de partie](http://localhost:8000/fin.html),
-[le classement](http://localhost:8000/classement.html) ou [les aperçus des ressources](http://localhost:8000/apercus/).
-Ce serveur sert uniquement à prévisualiser les fichiers statiques.
-
-## Documentation
-
-- [Interfaces, ressources, contrôleur de test et standards de génération](documentation/README.md)
-- [中文说明](documentation/README-chinois.md)
-
-Le script `npm test` est actuellement un emplacement réservé ; aucun test automatisé n’est configuré dans cette branche.
-
-Équipe : Tasnim ZAHOUANI, Zemiao HU, Rachel PERETTI, Gatien CAILLET, Ziyang GU.
+### Équipe : 
+Pôle 1 (UI/UX & Assets) Ziyang GU,
+Pôle 2 (Rendu Canvas & Contrôles) Zemiao HU,
+Pôle 3 (Moteur de jeu & Tests) Gatien CAILLET,
+Pôle 4 (Base de données & API) Tasnim ZAHOUANI,
+Pôle 5 (Serveur & Socket.io) Rachel PERETTI
