@@ -269,7 +269,9 @@ function nextId(draft, prefix) {
 }
 
 function emit(draft, type, data = {}) {
-  draft.events.push({ type, time: draft.time, ...data });
+  // « type » et « time » sont écrits en dernier pour que les données ne
+  // puissent pas les écraser.
+  draft.events.push({ ...data, type, time: draft.time });
 }
 
 // ===========================================================================
@@ -921,7 +923,7 @@ function collectPowerUps(draft) {
 
     draft.players[index] = POWER_UPS[powerUp.type].apply(player);
     draft.powerUps = draft.powerUps.filter((item) => item.id !== powerUp.id);
-    emit(draft, 'powerUpCollected', { playerId: player.id, type: powerUp.type });
+    emit(draft, 'powerUpCollected', { playerId: player.id, powerUpType: powerUp.type });
   });
 }
 
