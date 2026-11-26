@@ -1,4 +1,3 @@
-import socket from "../socket/socket.js";
 import * as art from "./canvas_art.js";
 
 const canvas = document.getElementById("gameCanvas");
