@@ -1,1 +1,0 @@
-// Module réseau client partagé, créé par le pôle 5 et importé par les pôles 1 et 2
