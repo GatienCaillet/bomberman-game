@@ -1,10 +1,13 @@
 import express from 'express';
 import { createServer } from 'node:http';
+import { join } from 'node:path';
 import { Server } from 'socket.io';
 import { RoomManager } from './RoomManager.js';
 
 const app = express();
-app.use(express.static('public'));
+//le client (src/client) et les ressources (public/ressources)
+app.use(express.static(join(import.meta.dirname, '../client')));
+app.use(express.static(join(import.meta.dirname, '../../public')));
 const httpServer = createServer(app);
 
 //client mort après 10s max
@@ -31,4 +34,5 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => rooms.leave(socket));
 });
 
-httpServer.listen(3000, () => console.log('http://localhost:3000'));
+const PORT = process.env.PORT || 3000;
+httpServer.listen(PORT, () => console.log(`http://localhost:${PORT}`));

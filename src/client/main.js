@@ -1,4 +1,4 @@
-import * as art from "./canvas_art.js";
+import * as art from "./assets.js";
 
 const canvas = document.getElementById("gameCanvas");
 if (!canvas) {
@@ -36,12 +36,12 @@ function loadImage(name, path) {
 }
 
 //sol
-loadImage("floor", new URL("../../Ressources/" + art.ASSETS.floor, import.meta.url).href);
+loadImage("floor", "/ressources/" + art.ASSETS.floor);
 
 // Références graphiques uniquement : aucune modification de la carte.
-loadImage("bomb", new URL("../../Ressources/" + art.ASSETS.bomb, import.meta.url).href);
+loadImage("bomb", "/ressources/" + art.ASSETS.bomb);
 for (const path of [...art.BUILDINGS, ...art.DESTRUCTIBLES]) {
-    loadImage(path, new URL("../../Ressources/" + path, import.meta.url).href);
+    loadImage(path, "/ressources/" + path);
 }
 let playerLayer = null;
 const playerSprites = {};
@@ -291,7 +291,7 @@ function drawPlayers() {
         if (!sprite) {
             sprite = document.createElement("img");
             const character = index % 2 ? art.CHARACTERS.police : art.CHARACTERS.protester;
-            sprite.src = new URL("../../Ressources/" + character.idle, import.meta.url).href;
+            sprite.src = "/ressources/" + character.idle;
             sprite.alt = player.id;
             sprite.style.cssText = "position:absolute;object-fit:contain;image-rendering:pixelated";
             playerLayer.appendChild(sprite);
