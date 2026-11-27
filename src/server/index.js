@@ -5,8 +5,7 @@ import { Server } from 'socket.io';
 import { RoomManager } from './RoomManager.js';
 
 const app = express();
-//le client (src/client) et les ressources (public/ressources)
-app.use(express.static(join(import.meta.dirname, '../client')));
+//le client et les ressources (public/ et public/ressources)
 app.use(express.static(join(import.meta.dirname, '../../public')));
 const httpServer = createServer(app);
 
