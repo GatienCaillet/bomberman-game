@@ -1,35 +1,19 @@
-// Chemins des images, relatifs à public/ressources/.
-// Les variantes d'un même sprite (GIF, première image, bande) ne sont pas des objets différents.
-// Ressources nécessaires à la carte : sol et apparences des bombes.
+// Images propres au client, chemins relatifs à public/ressources/.
+// Le décor (bâtiments, obstacles, végétation) n'est pas ici : le serveur
+// envoie le chemin de chaque image dans game.objects[].sprite (voir GameState.js).
+
 export const ASSETS = {
     floor: 'sols/paves-sans-joint.png',
     bomb: 'bombes/fixes/06-bombe-ronde.png',
-    roundBomb: 'bombes/animations/bombe-ronde/combustion/animation.gif',
-    cylinderBomb: 'bombes/animations/bombe-cylindrique/combustion/animation.gif',
 };
-// Bâtiments indestructibles : chaque case occupée reçoit la valeur 1.
-export const BUILDINGS = [
-    'batiments/logements/01-1x1.png',
-    'batiments/logements/02-1x2.png',
-    'batiments/logements/03-1x3.png',
-    'batiments/logements/04-2x1.png',
-    'batiments/logements/05-2x2.png',
-    'batiments/commerces/01-1x2.png',
-    'batiments/commerces/02-1x2.png',
-    'batiments/commerces/03-2x2.png',
-    'batiments/commerces/04-1x1.png',
-    'batiments/commerces/05-1x3.png',
-    'batiments/commerces/06-2x1.png',
-    'batiments/commerces/07-2x2.png',
-    'batiments/commerces/08-1x1.png',
-];
-// Obstacles et végétation destructibles : chaque case occupée reçoit la valeur 2.
-export const DESTRUCTIBLES = [
-    'obstacles/destructibles/03-cone.png',
-    'obstacles/destructibles/04-poubelle.png',
-    'obstacles/vegetation/01-buisson.png',
-    'obstacles/vegetation/02-arbre.png',
-];
+
+// Bonus ramassables, par type (le coeur n'a pas d'image : il est dessiné en emoji).
+export const POWER_UPS = {
+    bombUp: 'bonus/01-capacite-bombes-plaque.png',
+    fireUp: 'bonus/02-portee-flammes-plaque.png',
+    speedUp: 'bonus/03-vitesse-plaque.png',
+};
+
 // Animations GIF des joueurs, classées par personnage et état de déplacement.
 export const CHARACTERS = {
     protester: {

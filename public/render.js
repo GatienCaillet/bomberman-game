@@ -6,12 +6,6 @@ import * as art from "./assets.js";
 export const RESSOURCES = "/ressources/";
 const TILE_SIZE = 40;
 
-const POWER_UP_SPRITES = {
-    bombUp: "bonus/01-capacite-bombes-plaque.png",
-    fireUp: "bonus/02-portee-flammes-plaque.png",
-    speedUp: "bonus/03-vitesse-plaque.png",
-};
-
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -82,7 +76,7 @@ function drawObjects(game) {
 function drawPowerUps(game) {
     for (const powerUp of game.powerUps) {
         const x = powerUp.x * TILE_SIZE, y = powerUp.y * TILE_SIZE;
-        const path = POWER_UP_SPRITES[powerUp.type];
+        const path = art.POWER_UPS[powerUp.type];
         if (path && isLoaded(getImage(path))) {
             ctx.drawImage(getImage(path), x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE - 8);
         } else {
@@ -235,4 +229,4 @@ export function drawGame(game, myId) {
 }
 
 // préchargement des images connues
-for (const path of [art.ASSETS.floor, art.ASSETS.bomb, ...Object.values(POWER_UP_SPRITES)]) getImage(path);
+for (const path of [art.ASSETS.floor, art.ASSETS.bomb, ...Object.values(art.POWER_UPS)]) getImage(path);
