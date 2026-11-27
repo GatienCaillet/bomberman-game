@@ -1,817 +1,584 @@
+// Client du jeu : il n'applique aucune règle.
+// Il affiche le dernier état envoyé par le serveur et lui transmet les touches.
 import * as art from "./assets.js";
-
-const canvas = document.getElementById("gameCanvas");
-if (!canvas) {
-    throw new Error("Can't find canvas of gameCanvas");
-}
-
-const ctx = canvas.getContext("2d");
-
-//recuper les item de html
-const message = document.getElementById("message");
-const deathMessage = document.getElementById("die");
+import { NetworkClient } from "./NetworkClient.js";
 
 const TILE_SIZE = 40;
-const MAP_WIDTH = 60;
-const MAP_HEIGHT = 40;
+const RESSOURCES = "/ressources/";
 
-const LOCAL_STORAGE_KEY = "bombermanGameState";
-const LOCAL_PLAYER_ID = "p3";
-
-//charger ressources graphiques
-const image = {};
-function loadImage(name, path) {
-    const img = new Image();
-
-    img.onload = () => {
-        renderGame();
-    };
-
-    img.onerror = () => {
-        console.log("Image introuvable :", path);
-    };
-
-    img.src = path;
-    image[name] = img;
-}
-
-//sol
-loadImage("floor", "/ressources/" + art.ASSETS.floor);
-
-// Références graphiques uniquement : aucune modification de la carte.
-loadImage("bomb", "/ressources/" + art.ASSETS.bomb);
-for (const path of [...art.BUILDINGS, ...art.DESTRUCTIBLES]) {
-    loadImage(path, "/ressources/" + path);
-}
-let playerLayer = null;
-const playerSprites = {};
-
-// 0: Passage
-// 1: Mur
-// 2: Mur destructible
-
-
-
-// Créer la carte sans dépendre du fichier de références graphiques.
-function generateMap(width, height) {
-    const map = Array.from({ length: height }, (_, y) =>
-        Array.from({ length: width }, (_, x) => {
-            if (x === 0 || y === 0 || x === width - 1 || y === height - 1 ||
-                (x % 2 === 0 && y % 2 === 0)) return 1;
-            return Math.random() < 0.15 ? 2 : 0;
-        })
-    );
-    // Garder libres les positions initiales et leurs sorties.
-    for (const p of [{ x: 1, y: 1 }, { x: 5, y: 5 }, { x: 9, y: 9 }, { x: 1, y: 9 }]) {
-        for (const d of [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]) {
-            const x = p.x + d.x, y = p.y + d.y;
-            if (x > 0 && x < width - 1 && y > 0 && y < height - 1) map[y][x] = 0;
-        }
-    }
-    return map;
-}
-
-const gameState = {
-    map: generateMap(MAP_WIDTH, MAP_HEIGHT),
-
-    camera: {
-        x: 0,
-        y: 0,
-        width: 700,
-        height: 500
-    },
-
-    players: [
-        {
-            id: "p1",
-            x: 1,
-            y: 1,
-            color: "#38bdf8",
-            lives: 5,
-            score: 0,
-            speed: randomSpeed(),
-            alive: true
-        },
-        {
-            id: "p2",
-            x: 5,
-            y: 5,
-            color: "#ef4444",
-            lives: 5,
-            score: 0,
-            speed: randomSpeed(),
-            alive: true
-        },
-        {
-            id: "p3",
-            x: 9,
-            y: 9,
-            color: "#10b981",
-            lives: 5,
-            speed: randomSpeed(),
-            score: 0,
-            alive: true
-        },
-        {
-            id: "p4",
-            x: 1,
-            y: 9,
-            color: "#f59e0b",
-            lives: 5,
-            speed: randomSpeed(),
-            score: 0,
-            alive: true
-        }
-    ],
-
-    bombs: [],
-
-    explosions: []
-
+const POWER_UP_SPRITES = {
+    bombUp: "bonus/01-capacite-bombes-plaque.png",
+    fireUp: "bonus/02-portee-flammes-plaque.png",
+    speedUp: "bonus/03-vitesse-plaque.png",
 };
 
-//Taille de CANVAS en fonction de la taille de la map
-canvas.width = gameState.camera.width;
-canvas.height = gameState.camera.height;
-canvas.style.height = canvas.height + "px";
-canvas.parentElement.style.height = canvas.height + "px";
+const SOUNDS = {
+    bombPlaced: "sons/placement.wav",
+    bombExploded: "sons/explosion.wav",
+};
 
-//mettre a jour les vies affichees dans le panneau d'information
+// event.code ne dépend pas de la disposition du clavier :
+// KeyW/KeyA/KeyS/KeyD = ZQSD en AZERTY, WASD en QWERTY.
+const KEY_DIRECTIONS = {
+    ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
+    KeyW: "up", KeyS: "down", KeyA: "left", KeyD: "right",
+};
 
-// Mettre à jour les informations du joueur local
-function updatePlayerInfo() {
-    const localPlayer = gameState.players.find(
-        player => player.id === LOCAL_PLAYER_ID
-    );
+const $ = (id) => document.getElementById(id);
+const canvas = $("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-    if (!localPlayer) {
+const net = new NetworkClient();
+// dernier état reçu : { code, hostId, game }
+let snapshot = null;
+// vrai entre l'entrée dans un salon et sa sortie (ignore les états qui arrivent après)
+let inRoom = false;
+
+// ===========================================================================
+// Réseau
+// ===========================================================================
+
+net.onStatus = (status) => {
+    if (status === "connected") {
+        $("connection-status").textContent = "Connecté au serveur";
         return;
     }
-
-
-    // Mettre à jour le nom
-    const nameElement =
-        document.getElementById("name");
-
-    if (nameElement) {
-        nameElement.textContent =
-            localPlayer.name || localPlayer.id;
+    $("connection-status").textContent = "Connexion perdue, reconnexion…";
+    if (inRoom) {
+        leaveRoom();
+        $("menu-error").textContent = "Connexion perdue avec le serveur.";
     }
+};
 
-    // Mettre à jour le score
-    const scoreElement =
-        document.getElementById("score");
+net.onState = (next) => {
+    if (!inRoom) return;
+    const previousPhase = snapshot?.game.phase;
+    snapshot = next;
+    if (next.game.phase !== previousPhase) onPhaseChange(next.game.phase);
+    updateUi();
+};
 
-    if (scoreElement) {
-        scoreElement.textContent =
-            `Score: ${formatScore(localPlayer.score)}`;
-    }
+net.onEvent = (event) => {
+    if (!inRoom) return;
+    if (SOUNDS[event.type]) playSound(SOUNDS[event.type]);
 
-    // Mettre a jour la vitesse
-    const vitesseElement =
-        document.getElementById("speed");
-
-    if (vitesseElement) {
-        vitesseElement.textContent =
-            "⚡️".repeat(localPlayer.speed);
-    }
-
-
-    // Mettre à jour les coeurs
-    const livesElement =
-        document.getElementById("lives");
-
-    if (livesElement) {
-        livesElement.textContent =
-            "❤️".repeat(Math.max(0, localPlayer.lives));
-    }
-
-    // Afficher le symbole de mort uniquement si le joueur est mort
-    if (deathMessage) {
-        deathMessage.style.display =
-            localPlayer.alive ? "none" : "inline";
-    }
-}
-
-// // Afficher les nombres entiers et les demi-points
-// function formatScore(score) {
-//     if (Number.isInteger(score)) {
-//         return String(score);
-//     }
-
-//     return score.toFixed(1);
-// }
-
-//mettre a jour de la position de la camera
-function updateCamera() {
-    const player = gameState.players.find(player => player.id === LOCAL_PLAYER_ID);
-    if (!player) return;
-    const camera = gameState.camera;
-    camera.x = Math.max(0, Math.min(
-        (player.x + 0.5) * TILE_SIZE - canvas.width / 2,
-        gameState.map[0].length * TILE_SIZE - canvas.width
-    ));
-    camera.y = Math.max(0, Math.min(
-        (player.y + 0.5) * TILE_SIZE - canvas.height / 2,
-        gameState.map.length * TILE_SIZE - canvas.height
-    ));
-}
-
-// Afficher les nombres entiers et les demi-points
-function formatScore(score) {
-    if (Number.isInteger(score)) {
-        return String(score);
-    }
-
-    return score.toFixed(1);
-}
-
-//avoir vitesse de jouers differents: 1-3
-function randomSpeed() {
-    return Math.floor(Math.random() * 3) + 1;
-}
-
-// Ajouter des points à un joueur
-function addScore(playerId, points) {
-    const player = gameState.players.find(
-        player => player.id === playerId
-    );
-
-    if (!player) {
-        return;
-    }
-
-    player.score += points;
-}
-
-// dessiner la carte
-function drawMap() {
-    for (let y = 0; y < gameState.map.length; y++) {
-        for (let x = 0; x < gameState.map[y].length; x++) {
-            const tile = gameState.map[y][x];
-            const pixelX = x * TILE_SIZE, pixelY = y * TILE_SIZE;
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(pixelX, pixelY, TILE_SIZE, TILE_SIZE);
-            if (image.floor.complete && image.floor.naturalWidth > 0) {
-                ctx.drawImage(image.floor, pixelX, pixelY, TILE_SIZE, TILE_SIZE);
-            }
-            if (tile === 0) continue;
-            // Garder le type de collision existant : 1 = bâtiment, 2 = obstacle.
-            const paths = tile === 1 ? art.BUILDINGS : art.DESTRUCTIBLES;
-            const img = image[paths[(x * 7 + y * 3) % paths.length]];
-            if (img.complete && img.naturalWidth > 0) {
-                const scale = Math.min(TILE_SIZE / img.naturalWidth, TILE_SIZE / img.naturalHeight);
-                const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
-                ctx.drawImage(img, pixelX + (TILE_SIZE - width) / 2, pixelY + TILE_SIZE - height, width, height);
-            } else {
-                ctx.fillStyle = tile === 1 ? "#8b4513" : "#d2b48c";
-                ctx.fillRect(pixelX, pixelY, TILE_SIZE, TILE_SIZE);
-            }
-        }
-    }
-}
-
-// dessiner les joueurs
-function drawPlayers() {
-    // Une simple couche d'images conserve l'animation native des GIF.
-    if (!playerLayer) {
-        playerLayer = document.createElement("div");
-        playerLayer.style.cssText = "position:absolute;overflow:hidden;pointer-events:none;z-index:2";
-        canvas.parentElement.appendChild(playerLayer);
-    }
-    const box = canvas.getBoundingClientRect(), parent = canvas.parentElement.getBoundingClientRect();
-    const sx = canvas.clientWidth / canvas.width, sy = canvas.clientHeight / canvas.height;
-    Object.assign(playerLayer.style, {
-        left: box.left - parent.left + canvas.clientLeft + "px",
-        top: box.top - parent.top + canvas.clientTop + "px",
-        width: canvas.clientWidth + "px", height: canvas.clientHeight + "px"
-    });
-    gameState.players.forEach((player, index) => {
-        let sprite = playerSprites[player.id];
-        if (!sprite) {
-            sprite = document.createElement("img");
-            const character = index % 2 ? art.CHARACTERS.police : art.CHARACTERS.protester;
-            sprite.src = "/ressources/" + character.idle;
-            sprite.alt = player.id;
-            sprite.style.cssText = "position:absolute;object-fit:contain;image-rendering:pixelated";
-            playerLayer.appendChild(sprite);
-            playerSprites[player.id] = sprite;
-        }
-        Object.assign(sprite.style, {
-            display: player.alive ? "block" : "none",
-            left: (player.x * TILE_SIZE - gameState.camera.x) * sx + "px",
-            top: (player.y * TILE_SIZE - gameState.camera.y) * sy + "px",
-            width: TILE_SIZE * sx + "px", height: TILE_SIZE * sy + "px"
-        });
-    });
-}
-
-//dessiner les bombes
-function drawBombs() {
-    gameState.bombs.forEach(bomb => {
-        if (image.bomb.complete && image.bomb.naturalWidth > 0) {
-            ctx.drawImage(image.bomb, bomb.x * TILE_SIZE, bomb.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        } else {
-            ctx.fillStyle = "#000000";
-            ctx.fillRect(bomb.x * TILE_SIZE, bomb.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        }
-    });
-}
-
-// Dessiner les explosions
-function drawExplosions() {
-    for (const explosion of gameState.explosions) {
-        const pixelX = explosion.x * TILE_SIZE;
-        const pixelY = explosion.y * TILE_SIZE;
-
-        // explosion exterieur
-        ctx.fillStyle = "#ff0000";
-
-
-        ctx.fillRect(
-            pixelX + 3,
-            pixelY + 3,
-            TILE_SIZE - 6,
-            TILE_SIZE - 6
-        );
-
-        // explosion interieur
-        ctx.fillStyle = "#fde047";
-
-        ctx.fillRect(
-            pixelX + 12,
-            pixelY + 12,
-            TILE_SIZE - 24,
-            TILE_SIZE - 24
-        );
-    }
-}
-
-// dessiner jeu general
-function renderGame() {
-    updateCamera();
-    ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    ctx.save();
-    ctx.translate(-gameState.camera.x, -gameState.camera.y);
-    drawMap();
-    drawBombs();
-    drawExplosions();
-    drawPlayers();
-
-    ctx.restore();
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
-    updatePlayerInfo();
-    checkResult();
-
-}
-
-// verifier si jouer peut passer
-function canWalk(x, y) {
-    // veifier si hors de frontiere de carte
-    if (
-        x < 0 ||
-        x >= gameState.map[0].length ||
-        y < 0 ||
-        y >= gameState.map.length
-    ) {
-        return false;
-    }
-
-    // mur et mur destructible
-    const tile = gameState.map[y][x];
-
-    if (tile === 1 || tile === 2) {
-        return false;
-    }
-
-    // posiiton de bombe indirect
-    const bombExists = gameState.bombs.some(
-        bomb => bomb.x === x && bomb.y === y
-    );
-
-    if (bombExists) {
-        return false;
-    }
-
-    // indierct si raconter autre jouer
-    const otherPlayerExists = gameState.players.some(
-        player =>
-            player.id !== LOCAL_PLAYER_ID &&
-            player.alive &&
-            player.x === x &&
-            player.y === y
-    );
-
-    if (otherPlayerExists) {
-        return false;
-    }
-
-    return true;
-}
-
-// jouer local mouvememt
-function movePlayer(direction) {
-    if(gamefinished){
-        return;
-    }
-    const player = gameState.players.find(
-        player => player.id === LOCAL_PLAYER_ID
-    );
-
-    if (!player || !player.alive) {
-        return;
-    }
-
-    const speed = player.speed || 1; //verifier si player.speed est valide, sinon la vitesse par defaut est 1
-
-    let newX = player.x;
-    let newY = player.y; // mettre a jour la position
-
-
-    //vitesse different
-    for (let i = 0; i < speed; i++) {
-        let nextX = newX;
-        let nextY = newY;
-
-
-        if (direction === "up") {
-            nextY--;
-        }
-
-        if (direction === "down") {
-            nextY++;
-        }
-
-        if (direction === "left") {
-            nextX--;
-        }
-
-        if (direction === "right") {
-            nextX++;
-        }
-
-        if (!canWalk(nextX, nextY)) {
-            if (message) {
-                message.textContent = "chemin indirect";
-            }
-
+    switch (event.type) {
+        case "roundStarted":
+            showMessage(`Manche ${event.round}`);
             break;
-        }
-        newX = nextX;
-        newY = nextY;
+        case "playerHit":
+            if (event.playerId === net.playerId) showMessage("Touché !");
+            break;
+        case "playerDied":
+            showMessage(event.playerId === net.playerId
+                ? "Tu es éliminé"
+                : `${nameOf(event.playerId)} est éliminé`);
+            break;
+        case "roundEnded":
+            showMessage(event.winnerId
+                ? `${nameOf(event.winnerId)} remporte la manche ${event.round}`
+                : `Manche ${event.round} : match nul`, 3000);
+            break;
+        case "playerLeft":
+            showMessage(`${nameOf(event.playerId)} a quitté la partie`);
+            break;
     }
-    // local test: pisition de jouer
-    player.x = newX;
-    player.y = newY;
+};
 
-    if (message) {
-        message.textContent =
-            `PositionPlayer：(${player.x}, ${player.y})`;
+function onPhaseChange(phase) {
+    if (phase === "playing") {
+        // Le serveur remet les entrées à zéro au début d'une manche :
+        // on oublie la dernière direction envoyée et on renvoie celle maintenue.
+        net.lastDirection = null;
+        sendHeldDirection();
     }
-
-    renderGame();
 }
 
-// local placer bombe
-function placeBomb() {
-    if(gamefinished){
-        return;
-    }
-    const player = gameState.players.find(
-        player => player.id === LOCAL_PLAYER_ID
-    );
+// ===========================================================================
+// Menu et salon
+// ===========================================================================
 
-    if (!player || !player.alive) {
-        return;
-    }
-    // placer qu'un seul bombe dans une position
-    const bombExists = gameState.bombs.some(
-        bomb => bomb.x === player.x && bomb.y === player.y
-    );
+$("pseudo").value = localStorage.getItem("pseudo") ?? "";
 
-    if (bombExists) {
-        return;
-    }
-
-    // créer une bombe à la position du joueur
-    const bomb = {
-        x: player.x,
-        y: player.y,
-        ownerId: player.id
-    }
-
-    gameState.bombs.push(bomb);
-
-
-
-    renderGame();
-
-    // expolision dans 1.5 seconde
-
-    if (message) {
-        message.textContent = "La bombe explosera dans 1.5 secondes"
-    }
-
-    setTimeout(() => {
-        explodeBomb(bomb);
-    }, 1500);
-
+function getPseudo() {
+    const pseudo = $("pseudo").value.trim();
+    localStorage.setItem("pseudo", pseudo);
+    return pseudo;
 }
 
-// Retirer une vie aux joueurs touchés par l'explosion
-function damagePlayers(explosionCells, ownerId) {
-    const owner = gameState.players.find(
-        player => player.id === ownerId
-    );
+async function enterRoom(request) {
+    $("menu-error").textContent = "";
+    inRoom = true;
+    try {
+        await request();
+        updateUi();
+    } catch (error) {
+        inRoom = false;
+        $("menu-error").textContent = error.message;
+    }
+}
 
-    for (const player of gameState.players) {
-        if (!player.alive) {
-            continue;
-        }
+function leaveRoom() {
+    net.leaveRoom();
+    inRoom = false;
+    snapshot = null;
+    heldDirections.length = 0;
+    showScreen("menu");
+}
 
-        const isTouched = explosionCells.some(
-            explosion =>
-                explosion.x === player.x &&
-                explosion.y === player.y
-        );
+$("create-btn").onclick = () =>
+    enterRoom(() => net.createRoom(getPseudo(), Number($("rounds").value)));
 
-        if (!isTouched) {
-            continue;
-        }
+$("join-btn").onclick = () =>
+    enterRoom(() => net.joinRoom($("room-code").value, getPseudo()));
 
-        console.log(
-            `${player.id} est touche. vies avant :`,
-            player.lives
-        );
+$("room-code").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") $("join-btn").click();
+});
 
-        // Le joueur perd une vie
-        player.lives = Math.max(
-            0,
-            player.lives - 1
-        );
+$("start-btn").onclick = async () => {
+    $("lobby-error").textContent = "";
+    try {
+        await net.startGame();
+    } catch (error) {
+        $("lobby-error").textContent = error.message;
+    }
+};
 
-        // Le joueur touché perd 0.5 point
-        player.score -= 0.5;
+$("leave-btn").onclick = leaveRoom;
+$("back-btn").onclick = leaveRoom;
 
-        // Un joueur ennemi touché rapporte des points au propriétaire
-        if (owner && player.id !== ownerId) {
-            if (player.lives <= 0) {
-                // Joueur ennemi éliminé : +2 points
-                owner.score += 2;
-            } else {
-                // Joueur ennemi touché : +1 point
-                owner.score += 1;
+// ===========================================================================
+// Interface (HTML)
+// ===========================================================================
+
+function showScreen(name) {
+    $("menu").hidden = name !== "menu";
+    $("lobby").hidden = name !== "lobby";
+    $("game-page").hidden = name !== "game";
+}
+
+function getMe() {
+    return snapshot?.game.players.find((player) => player.id === net.playerId);
+}
+
+function nameOf(playerId) {
+    return snapshot?.game.players.find((player) => player.id === playerId)?.name ?? "?";
+}
+
+// Le serveur envoie un état toutes les 50 ms : on ne reconstruit une liste
+// que si son contenu a changé, sinon un clic tomberait sur un bouton remplacé.
+const lastRendered = {};
+function renderOnce(key, value, render) {
+    if (lastRendered[key] === value) return;
+    lastRendered[key] = value;
+    render();
+}
+
+function updateUi() {
+    if (!snapshot) return;
+    const { game } = snapshot;
+
+    if (game.phase === "lobby") {
+        showScreen("lobby");
+        renderLobby();
+        return;
+    }
+
+    showScreen("game");
+    updatePlayerInfo();
+    renderAugmentPanel();
+    renderResult();
+}
+
+function renderLobby() {
+    const { game, code, hostId } = snapshot;
+    const isHost = hostId === net.playerId;
+
+    $("lobby-code").textContent = code;
+    $("start-btn").hidden = !isHost;
+    $("start-btn").disabled = game.players.length < game.config.minPlayers;
+    $("lobby-wait").hidden = isHost;
+
+    // net.playerId fait partie de la clé : le premier état arrive avant la
+    // réponse du serveur qui nous donne notre id
+    const list = game.players.map((p) => `${p.id}:${p.name}`).join("|") + hostId + net.playerId;
+    renderOnce("lobby", list, () => {
+        $("lobby-players").replaceChildren(...game.players.map((player) => {
+            const item = document.createElement("li");
+            item.textContent = player.name;
+            if (player.id === hostId) item.textContent += " (hôte)";
+            if (player.id === net.playerId) item.classList.add("me");
+            return item;
+        }));
+    });
+}
+
+// Informations du joueur local
+function updatePlayerInfo() {
+    const { game } = snapshot;
+    const me = getMe();
+    if (!me) return;
+
+    const hearts = Math.max(0, me.hearts);
+    const lost = Math.max(0, me.stats.maxHearts - hearts);
+
+    $("name").textContent = me.name;
+    $("score").textContent = `Score : ${me.score}`;
+    $("lives").textContent = me.alive || game.phase !== "playing"
+        ? "❤️".repeat(hearts) + "🖤".repeat(lost)
+        : "💀 Éliminé";
+    $("speed").textContent = `⚡ x${Number(me.stats.speed.toFixed(2))}`;
+    $("bombs").textContent = `💣 ${me.stats.maxBombs}   🔥 ${me.stats.bombRange}`;
+    $("round").textContent = `Manche ${game.round}/${game.config.totalRounds}`;
+
+    const remaining = Math.max(0, (game.roundEndsAt ?? 0) - game.time);
+    const seconds = Math.ceil(remaining / 1000);
+    $("timer").textContent = game.phase === "playing"
+        ? `⏱ ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+        : "";
+}
+
+function renderAugmentPanel() {
+    const { game } = snapshot;
+    const show = game.phase === "augment";
+    $("augment-panel").hidden = !show;
+    if (!show) return;
+
+    const offer = getMe()?.augmentOffer ?? [];
+    $("augment-wait").textContent = offer.length ? "" : "En attente des autres joueurs…";
+
+    renderOnce("augments", offer.join(","), () => {
+        $("augment-choices").replaceChildren(...offer.map((id) => {
+            const augment = net.augmentCatalog.find((item) => item.id === id);
+            const button = document.createElement("button");
+            button.className = "augment";
+            button.innerHTML = "<strong></strong><span></span>";
+            button.querySelector("strong").textContent = augment?.name ?? id;
+            button.querySelector("span").textContent = augment?.description ?? "";
+            button.onclick = () => net.chooseAugment(id);
+            return button;
+        }));
+    });
+}
+
+function renderResult() {
+    const { game } = snapshot;
+    const show = game.phase === "gameOver";
+    $("game-result").hidden = !show;
+    if (!show) return;
+
+    const won = game.winnerId === net.playerId;
+    $("result-title").textContent = won ? "VICTOIRE" : "DÉFAITE";
+    $("result-title").className = "result-title " + (won ? "win" : "lose");
+    $("result-message").textContent = won
+        ? "Tu as le meilleur score !"
+        : `${nameOf(game.winnerId)} remporte la partie.`;
+
+    // même ordre que getResults() côté serveur
+    const ranking = [...game.players].sort((a, b) =>
+        b.score - a.score || b.roundWins - a.roundWins || b.kills - a.kills);
+
+    renderOnce("ranking", JSON.stringify(ranking.map((p) => [p.id, p.score])), () => {
+        $("ranking-body").replaceChildren(...ranking.map((player, index) => {
+            const row = document.createElement("tr");
+            if (player.id === net.playerId) row.classList.add("me");
+            for (const value of [index + 1, player.name, player.score, player.roundWins, player.kills]) {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                row.appendChild(cell);
             }
-        }
-
-        // Le joueur meurt après cinq dégâts
-        if (player.lives <= 0) {
-            player.lives = 0;
-            player.alive = false;
-
-            if (message) {
-                message.textContent =
-                    `${player.id} est mort`;
-            }
-        }
-        console.log(
-            `${player.id} vies après :`,
-            player.lives
-        );
-    }
-}
-// Verifier la resultat
-let gamefinished = false;
-
-function checkResult() {
-    if (gamefinished) {
-        return;
-    }
-
-    const localPlayer = gameState.players.find(
-        player => player.id === LOCAL_PLAYER_ID
-    );
-
-    if (!localPlayer) return;
-
-    const alivePlayers = gameState.players.filter(
-        player => player.alive && player.lives > 0
-    );
-
-    //defait: le jouer local est mort
-    if (!localPlayer.alive || localPlayer.lives <= 0) {
-        gamefinished = true;
-        showResult("LOSE");
-        return;
-    }
-
-    //victoire: le jouer local est le dernier survivant 
-
-    if (alivePlayers.length === 1 &&
-        alivePlayers[0].id === localPlayer.id) {
-        gamefinished = true;
-
-        showResult("WIN");
-        return;
-    }
+            return row;
+        }));
+    });
 }
 
-
-function showResult(result) {
-    gamefinished = true;
-
-     const player = gameState.players.find(
-        p => p.id === LOCAL_PLAYER_ID
-    );
-
-    if (!player) return;
-
-    const resultBloc = document.getElementById("game-result");
-    const title = document.getElementById("result-title");
-    const message = document.getElementById("result-message");
-
-
-    //afficher le resultat
-    if (!resultBloc || !title) {
-        return;
-    }
-
-    resultBloc.hidden = false;
-
-    if (result === "WIN") {
-        title.textContent = "VICTOIRE";
-        title.className = "result-title win";
-        if (message) {
-            message.textContent = "Vous avez gagné !";
-        }
-    } else {
-        title.textContent = "DÉFAITE";
-        title.className = "result-title lose";
-        if (message) {
-            message.textContent = "Vous avez perdu.";
-        }
-    }
-     // Afficher uniquement les informations du joueur local
-    document.getElementById("final-name").textContent =
-        `Joueur : ${player.name || player.id}`;
-
-    document.getElementById("final-score").textContent =
-        `Score : ${formatScore(player.score)}`;
-
-    document.getElementById("final-speed").textContent =
-        `Vitesse : ${"⚡".repeat(player.speed || 1)}`;
-
-    document.getElementById("final-lives").textContent =
-        `Vies : ${"❤️".repeat(Math.max(0, player.lives)) || "0"}`;
-
-    document.body.classList.add("game-over");
-        setTimeout(() => {
-        resultBloc.hidden = true;
-        document.body.classList.remove("game-over");
-    }, 10000);
+let messageTimer = null;
+function showMessage(text, duration = 2000) {
+    const message = $("message");
+    message.textContent = text;
+    message.classList.add("visible");
+    clearTimeout(messageTimer);
+    messageTimer = setTimeout(() => message.classList.remove("visible"), duration);
 }
 
-
-
-
-
-
-// Faire exploser une bombe
-function explodeBomb(bomb) {
-    if (!gameState.bombs.includes(bomb)) return;
-    // La case centrale de l'explosion
-    const explosionCells = [
-        {
-            x: bomb.x,
-            y: bomb.y
-        }
-    ];
-
-    let destroyedWalls = 0;
-
-    const directions = [
-        { x: 0, y: -1 }, // Vers le haut
-        { x: 0, y: 1 },  // Vers le bas
-        { x: -1, y: 0 }, // Vers la gauche
-        { x: 1, y: 0 }   // Vers la droite
-    ];
-
-    const explosionRange = 2;
-
-    // Calculer les cases touchées par l'explosion
-    for (const direction of directions) {
-        for (
-            let distance = 1;
-            distance <= explosionRange;
-            distance++
-        ) {
-            const x = bomb.x + direction.x * distance;
-            const y = bomb.y + direction.y * distance;
-
-            // Arrêter si la case est en dehors de la carte
-            if (
-                x < 0 ||
-                x >= gameState.map[0].length ||
-                y < 0 ||
-                y >= gameState.map.length
-            ) {
-                break;
-            }
-
-            const tile = gameState.map[y][x];
-
-            // Un mur fixe bloque l'explosion
-            if (tile === 1) {
-                break;
-            }
-
-            // Ajouter la case à l'explosion
-            explosionCells.push({
-                x: x,
-                y: y
-            });
-
-            // Un mur destructible est détruit, puis l'explosion s'arrête dans cette direction
-            if (tile === 2) {
-                gameState.map[y][x] = 0;
-                destroyedWalls++;
-                break;
-            }
-        }
-    }
-    // Gagner 0.5 point pour chaque mur detruit
-    addScore(
-        bomb.ownerId,
-        destroyedWalls * 0.5
-    );
-
-    // Supprimer la bombe qui vient d'exploser
-    gameState.bombs = gameState.bombs.filter(
-        existingBomb => existingBomb !== bomb
-    );
-
-    // Ajouter les cases à la liste des explosions
-    gameState.explosions.push(...explosionCells);
-
-    damagePlayers(
-        explosionCells,
-        bomb.ownerId
-    );
-
-    //Verifier la victoitr ou la defaite
-    checkResult();
-
-    // Afficher immédiatement le résultat
-    renderGame();
-
-    // Supprimer l'effet visuel après 500 millisecondes
-    setTimeout(() => {
-        gameState.explosions =
-            gameState.explosions.filter(explosion => !explosionCells.includes(explosion));
-
-        renderGame();
-    }, 500);
+function playSound(path) {
+    const sound = new Audio(RESSOURCES + path);
+    sound.volume = 0.4;
+    // le navigateur peut refuser le son tant que la page n'a pas été cliquée
+    sound.play().catch(() => {});
 }
 
-// ecoter clavier
-document.addEventListener("keydown", event => {
-    const directionKeys = {
-        ArrowUp: "up",
-        ArrowDown: "down",
-        ArrowLeft: "left",
-        ArrowRight: "right"
-    };
+// ===========================================================================
+// Clavier
+// ===========================================================================
 
-    const direction = directionKeys[event.key];
+// Directions maintenues, la dernière appuyée en dernier :
+// relâcher une touche reprend la direction encore maintenue.
+const heldDirections = [];
 
-     // Arrêter les contrôles après la fin du jeu
-    if (gamefinished) {
-        if (direction || event.code === "Space") {
-            event.preventDefault();
-        }
-        return;
-    }
+function sendHeldDirection() {
+    net.sendDirection(heldDirections.at(-1) ?? null);
+}
+
+function isTyping(event) {
+    return ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName);
+}
+
+document.addEventListener("keydown", (event) => {
+    if (!inRoom || isTyping(event)) return;
+    const direction = KEY_DIRECTIONS[event.code];
 
     if (direction) {
         event.preventDefault();
-        movePlayer(direction);
-        return;
-    }
-
-    if (event.code === "Space") {
+        if (!heldDirections.includes(direction)) heldDirections.push(direction);
+        sendHeldDirection();
+    } else if (event.code === "Space") {
         event.preventDefault();
-        placeBomb();
+        if (!event.repeat) net.placeBomb();
     }
 });
 
-//commencer 
-renderGame();
+document.addEventListener("keyup", (event) => {
+    const direction = KEY_DIRECTIONS[event.code];
+    if (!direction) return;
+    const index = heldDirections.indexOf(direction);
+    if (index !== -1) heldDirections.splice(index, 1);
+    if (inRoom) sendHeldDirection();
+});
 
+// sans ça, le joueur continuerait d'avancer après un changement de fenêtre
+window.addEventListener("blur", () => {
+    heldDirections.length = 0;
+    if (inRoom) sendHeldDirection();
+});
+
+// ===========================================================================
+// Dessin (canvas)
+// ===========================================================================
+
+const images = new Map();
+function getImage(path) {
+    let image = images.get(path);
+    if (!image) {
+        image = new Image();
+        image.src = RESSOURCES + path;
+        images.set(path, image);
+    }
+    return image;
+}
+
+const isLoaded = (image) => image.complete && image.naturalWidth > 0;
+
+function resizeCanvas(config) {
+    const width = config.width * TILE_SIZE;
+    const height = config.height * TILE_SIZE;
+    if (canvas.width === width && canvas.height === height) return;
+    canvas.width = width;
+    canvas.height = height;
+}
+
+function isBorder(config, x, y) {
+    return x === 0 || y === 0 || x === config.width - 1 || y === config.height - 1;
+}
+
+function drawGround(game) {
+    const floor = getImage(art.ASSETS.floor);
+    game.map.forEach((row, y) => row.forEach((tile, x) => {
+        const px = x * TILE_SIZE, py = y * TILE_SIZE;
+        if (isBorder(game.config, x, y)) {
+            ctx.fillStyle = "#2b2f3a";
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+            return;
+        }
+        if (isLoaded(floor)) {
+            ctx.drawImage(floor, px, py, TILE_SIZE, TILE_SIZE);
+        } else {
+            ctx.fillStyle = "#9ca3af";
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        }
+    }));
+}
+
+// Décor : bâtiments, végétation, cônes, poubelles.
+// Un objet couvre width × height cases ; son image garde ses proportions
+// et repose sur le bas de son emprise (le toit peut dépasser au-dessus).
+function drawObjects(game) {
+    const sorted = [...game.objects].sort((a, b) => (a.y + a.height) - (b.y + b.height));
+    for (const object of sorted) {
+        const image = getImage(object.sprite);
+        const x = object.x * TILE_SIZE;
+        const bottom = (object.y + object.height) * TILE_SIZE;
+        const width = object.width * TILE_SIZE;
+
+        if (isLoaded(image)) {
+            const height = image.naturalHeight * (width / image.naturalWidth);
+            ctx.drawImage(image, x, bottom - height, width, height);
+        } else {
+            ctx.fillStyle = object.destructible ? "#d2b48c" : "#8b4513";
+            ctx.fillRect(x, object.y * TILE_SIZE, width, object.height * TILE_SIZE);
+        }
+    }
+}
+
+function drawPowerUps(game) {
+    for (const powerUp of game.powerUps) {
+        const x = powerUp.x * TILE_SIZE, y = powerUp.y * TILE_SIZE;
+        const path = POWER_UP_SPRITES[powerUp.type];
+        if (path && isLoaded(getImage(path))) {
+            ctx.drawImage(getImage(path), x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+        } else {
+            // pas d'image pour le coeur : on dessine un emoji
+            ctx.font = `${TILE_SIZE * 0.6}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(powerUp.type === "heart" ? "❤️" : "?", x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+        }
+    }
+}
+
+// La bombe gonfle de plus en plus vite à l'approche de l'explosion.
+function drawBombs(game) {
+    const image = getImage(art.ASSETS.bomb);
+    for (const bomb of game.bombs) {
+        const remaining = bomb.explodeAt - game.time;
+        const speed = remaining < 800 ? 40 : 120;
+        const scale = 0.8 + 0.08 * Math.sin(performance.now() / speed);
+        const size = TILE_SIZE * scale;
+        const x = bomb.x * TILE_SIZE + (TILE_SIZE - size) / 2;
+        const y = bomb.y * TILE_SIZE + (TILE_SIZE - size) / 2;
+
+        if (isLoaded(image)) {
+            ctx.drawImage(image, x, y, size, size);
+        } else {
+            ctx.fillStyle = "#000000";
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+function drawFlames(game) {
+    for (const flame of game.flames) {
+        const x = flame.x * TILE_SIZE, y = flame.y * TILE_SIZE;
+        ctx.fillStyle = "#ef4444";
+        ctx.fillRect(x + 3, y + 3, TILE_SIZE - 6, TILE_SIZE - 6);
+        ctx.fillStyle = "#fde047";
+        ctx.fillRect(x + 12, y + 12, TILE_SIZE - 24, TILE_SIZE - 24);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Joueurs : des <img> posés au-dessus du canvas, pour garder l'animation des GIF
+// (un GIF dessiné dans un canvas reste figé sur sa première image).
+// ---------------------------------------------------------------------------
+
+const playerLayer = document.createElement("div");
+playerLayer.className = "player-layer";
+canvas.parentElement.appendChild(playerLayer);
+// id du joueur -> { box, img, label }
+const playerSprites = new Map();
+
+function getPlayerSprite(player) {
+    let sprite = playerSprites.get(player.id);
+    if (!sprite) {
+        const box = document.createElement("div");
+        box.className = "player";
+        const img = document.createElement("img");
+        img.alt = player.name;
+        const label = document.createElement("span");
+        label.className = "player-name";
+        box.append(label, img);
+        playerLayer.appendChild(box);
+        sprite = { box, img, label };
+        playerSprites.set(player.id, sprite);
+    }
+    return sprite;
+}
+
+// Choisit l'animation selon le personnage, la direction et le mouvement.
+function getAnimation(character, player) {
+    const moving = player.alive && player.input?.direction != null;
+    const sideways = player.facing === "left" || player.facing === "right";
+
+    if (moving) {
+        if (!sideways && character.frontWalk) return { path: character.frontWalk, profile: false };
+        return { path: character.walk, profile: true };
+    }
+    if (sideways && character.sideIdle) return { path: character.sideIdle, profile: true };
+    return { path: character.idle, profile: false };
+}
+
+function drawPlayers(game) {
+    // le layer recouvre exactement l'intérieur du canvas (sans sa bordure)
+    const scale = canvas.clientWidth / canvas.width;
+    Object.assign(playerLayer.style, {
+        left: canvas.offsetLeft + canvas.clientLeft + "px",
+        top: canvas.offsetTop + canvas.clientTop + "px",
+        width: canvas.clientWidth + "px",
+        height: canvas.clientHeight + "px",
+    });
+
+    const size = TILE_SIZE * 1.3 * scale;
+    const blink = Math.floor(performance.now() / 100) % 2 === 0;
+
+    game.players.forEach((player, index) => {
+        const sprite = getPlayerSprite(player);
+        const character = index % 2 ? art.CHARACTERS.police : art.CHARACTERS.protester;
+        const { path, profile } = getAnimation(character, player);
+
+        // changer src relance le GIF : on ne le fait que si l'animation change
+        if (sprite.img.dataset.path !== path) {
+            sprite.img.dataset.path = path;
+            sprite.img.src = RESSOURCES + path;
+        }
+
+        const invincible = game.time < player.invincibleUntil;
+        sprite.label.textContent = player.name;
+        sprite.box.classList.toggle("me", player.id === net.playerId);
+        Object.assign(sprite.box.style, {
+            display: player.alive ? "block" : "none",
+            width: size + "px",
+            height: size + "px",
+            // centré sur la case, les pieds sur le bas de la case
+            left: ((player.x + 0.5) * TILE_SIZE * scale - size / 2) + "px",
+            top: ((player.y + 1) * TILE_SIZE * scale - size) + "px",
+            opacity: invincible && blink ? 0.35 : 1,
+        });
+        // les images de profil regardent vers la droite
+        sprite.img.style.transform = profile && player.facing === "left" ? "scaleX(-1)" : "";
+    });
+
+    // retirer les joueurs qui ne sont plus dans la partie
+    for (const [id, sprite] of playerSprites) {
+        if (!game.players.some((player) => player.id === id)) {
+            sprite.box.remove();
+            playerSprites.delete(id);
+        }
+    }
+}
+
+function renderGame() {
+    requestAnimationFrame(renderGame);
+    const game = snapshot?.game;
+    if (!game || !game.map.length) return;
+
+    resizeCanvas(game.config);
+    // redimensionner le canvas réinitialise ce réglage
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawGround(game);
+    drawObjects(game);
+    drawPowerUps(game);
+    drawBombs(game);
+    drawFlames(game);
+    drawPlayers(game);
+}
+
+// préchargement des images connues
+for (const path of [art.ASSETS.floor, art.ASSETS.bomb, ...Object.values(POWER_UP_SPRITES)]) getImage(path);
+
+showScreen("menu");
+renderGame();

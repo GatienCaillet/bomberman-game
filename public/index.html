@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 
 <head>
     <meta charset="UTF-8">
@@ -10,40 +10,87 @@
 </head>
 
 <body>
-    <main id="game-page">
-        <h1 id="game-over" style="display: none;">Game Over</h1>
-        <div class="game-container">
-            <canvas id="gameCanvas" width="700" height="700">
-            </canvas>
+    <!-- Menu : créer ou rejoindre un salon -->
+    <section id="menu" class="panel">
+        <h1>Bomberman</h1>
+        <label>Pseudo
+            <input id="pseudo" maxlength="16" placeholder="Ton pseudo">
+        </label>
 
-            <div class="game-info">
-                <span id="name">Player 1</span>
-                <span id="score">0</span>
-                <span id="speed">⚡️</span>
-                <span id="lives">❤️❤️❤️❤️❤️</span>
-                <span id="die">💀</span>
-
-            </div>
-
-            <div id="game-result" hidden>
-                <h1 id="result-title"></h1>
-                <p id="result-message"></p>
-
-                <!-- <h2>Résultat final</h2>
-
-                <table id="final-ranking">
-                    <thead>
-                        <tr>
-                            <th>Joueur</th>
-                            <th>Score</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ranking-body"></tbody>
-                </table> -->
-            </div>
-
+        <div class="menu-row">
+            <label>Manches
+                <select id="rounds">
+                    <option>1</option>
+                    <option>2</option>
+                    <option selected>3</option>
+                    <option>5</option>
+                </select>
+            </label>
+            <button id="create-btn">Créer un salon</button>
         </div>
 
+        <div class="menu-row">
+            <input id="room-code" maxlength="4" placeholder="CODE">
+            <button id="join-btn">Rejoindre</button>
+        </div>
+
+        <p id="menu-error" class="error"></p>
+        <p id="connection-status" class="muted">Connexion au serveur…</p>
+    </section>
+
+    <!-- Salon d'attente -->
+    <section id="lobby" class="panel" hidden>
+        <h2>Salon <span id="lobby-code"></span></h2>
+        <p class="muted">Donne ce code aux autres joueurs (2 à 4 joueurs).</p>
+        <ul id="lobby-players"></ul>
+        <button id="start-btn">Lancer la partie</button>
+        <p id="lobby-wait" class="muted">En attente de l'hôte…</p>
+        <p id="lobby-error" class="error"></p>
+        <button id="leave-btn" class="secondary">Quitter</button>
+    </section>
+
+    <!-- Partie -->
+    <main id="game-page" hidden>
+        <div class="game-info">
+            <span id="name"></span>
+            <span id="score"></span>
+            <span id="lives"></span>
+            <span id="speed"></span>
+            <span id="bombs"></span>
+            <span id="round"></span>
+            <span id="timer"></span>
+        </div>
+
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <p id="message"></p>
+        </div>
+
+        <!-- Choix d'un augment entre deux manches -->
+        <div id="augment-panel" class="overlay" hidden>
+            <h2>Choisis un augment</h2>
+            <div id="augment-choices"></div>
+            <p id="augment-wait" class="muted"></p>
+        </div>
+
+        <!-- Fin de partie -->
+        <div id="game-result" class="overlay" hidden>
+            <h1 id="result-title"></h1>
+            <p id="result-message"></p>
+            <table id="final-ranking">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Joueur</th>
+                        <th>Score</th>
+                        <th>Manches</th>
+                        <th>Élim.</th>
+                    </tr>
+                </thead>
+                <tbody id="ranking-body"></tbody>
+            </table>
+            <button id="back-btn">Retour au menu</button>
+        </div>
     </main>
 </body>
 
