@@ -1,5 +1,8 @@
 // Outils partagés par les tests du GameState.
-import { createGame, addPlayer, startGame, setInput, tick } from '../../src/game/GameState.js';
+import { DEFAULT_CONFIG, createGame, addPlayer, startGame, setInput, tick } from '../../src/game/GameState.js';
+
+// Durée pour parcourir exactement une case à la vitesse de base.
+export const ONE_TILE_MS = 1000 / DEFAULT_CONFIG.baseSpeed;
 
 // Petite arène ouverte : bords en murs, intérieur 5 × 3 entièrement libre.
 // Points de départ : (1,1), (5,3), (5,1), (1,3).

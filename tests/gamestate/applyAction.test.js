@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   PHASE,
+  DEFAULT_CONFIG,
   createGame,
   applyAction,
   getPlayer,
@@ -48,7 +49,7 @@ describe('applyAction', () => {
 
     assert.equal(state.phase, PHASE.PLAYING);
     assert.equal(state.time, 50);
-    assert.equal(getPlayer(state, 'a').x, 2);
+    assert.equal(getPlayer(state, 'a').x, 1 + DEFAULT_CONFIG.baseSpeed * 0.05);
   });
 
   it('transmet le choix d’un augment', () => {
