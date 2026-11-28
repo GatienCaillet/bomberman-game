@@ -1,26 +1,38 @@
 # Grenoble Bomber
 
-Projet de Bomberman en équipe. Cette branche fournit les interfaces web,
-les ressources graphiques et sonores, ainsi que des exemples pour les tester.
-Les connexions réseau, les résultats de partie et les scores réels restent à intégrer.
+- `npm start` lance le serveur sur http://localhost:3000.
+- `npm test` teste `src/game/GameState.js`.
 
-## Aperçu des interfaces
+## Architecture
 
-Avec Python 3, depuis la racine du dépôt (aucune compilation nécessaire) :
+Deux programmes séparés qui ne se parlent que par socket.io :
+le **serveur** (`src/`) applique toutes les règles, le **client** (`public/`) affiche l'état reçu et envoie les touches.
 
-```sh
-python3 -m http.server 8000 --directory public
+```mermaid
+flowchart TB
+    subgraph client["Navigateur · public/"]
+        html["index.html<br/><small>page + style.css</small>"]
+        main["main.js<br/><small>UI, clavier, boucle</small>"]
+        render["render.js<br/><small>dessine le jeu</small>"]
+        net["NetworkClient.js<br/><small>client socket.io</small>"]
+        assets["assets.js<br/><small>chemins d'images</small>"]
+        html --> main
+        main --> render
+        main --> net
+        render --> assets
+    end
+
+    subgraph serveur["Serveur Node · src/"]
+        index["server/index.js<br/><small>Express + socket.io</small>"]
+        rooms["RoomManager.js<br/><small>salons + boucle 50 ms</small>"]
+        game["game/GameState.js<br/><small>règles du jeu</small>"]
+        tests["tests/<br/><small>npm test</small>"]
+        index --> rooms
+        rooms --> game
+        tests --> game
+    end
+
+    net <-- "socket.io" --> index
 ```
-
-Ouvrir [l’accueil](http://localhost:8000/), [la fin de partie](http://localhost:8000/fin.html),
-[le classement](http://localhost:8000/classement.html) ou [les aperçus des ressources](http://localhost:8000/apercus/).
-Ce serveur sert uniquement à prévisualiser les fichiers statiques.
-
-## Documentation
-
-- [Interfaces, ressources, contrôleur de test et standards de génération](documentation/README.md)
-- [中文说明](documentation/README-chinois.md)
-
-Le script `npm test` est actuellement un emplacement réservé ; aucun test automatisé n’est configuré dans cette branche.
 
 Équipe : Tasnim ZAHOUANI, Zemiao HU, Rachel PERETTI, Gatien CAILLET, Ziyang GU.

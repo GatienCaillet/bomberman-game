@@ -1,1 +1,0 @@
-// Rendu Canvas 2D, animations et capture des touches (Pôle 2)
