@@ -59,8 +59,10 @@ const DEFAULT_CONFIG = Object.freeze({
   roundDurationMs: 180000, // au-delà, la manche est déclarée nulle
   bombFuseMs: 2500, // délai avant qu'une bombe explose
   flameDurationMs: 500, // durée pendant laquelle les flammes restent dangereuses
-  baseMoveDelayMs: 200, // délai entre deux pas à la vitesse 1
-  minMoveDelayMs: 80, // limite la vitesse maximale
+  baseSpeed: 5, // cases parcourues par seconde à la vitesse 1
+  maxSpeed: 12.5, // limite la vitesse maximale, en cases par seconde
+  hitboxSize: 0.8, // côté du carré de collision d'un joueur, en cases
+  cornerAssist: 0.4, // décalage maximal (en cases) corrigé par l'aide aux virages
   invincibilityMs: 1000, // protection après avoir perdu un coeur
   obstacleDensity: 0.5, // part des rues libres remplies de cônes et poubelles
   powerUpDropChance: 0.3, // probabilité qu'un obstacle détruit libère un bonus
@@ -301,6 +303,14 @@ function isWalkable(state, x, y) {
   return getTile(state, x, y) === TILE.EMPTY && !getBombAt(state, x, y);
 }
 
+// Les positions des joueurs sont décimales : (x, y) est le centre du
+// personnage, en cases, et une case entière (2, 3) est le centre de cette
+// case. La case du joueur est celle qui contient son centre : c'est elle
+// qui compte pour poser une bombe, ramasser un bonus ou être touché.
+function getPlayerCell(player) {
+  return { x: Math.round(player.x), y: Math.round(player.y) };
+}
+
 function countActiveBombs(state, playerId) {
   return state.bombs.filter((bomb) => bomb.ownerId === playerId).length;
 }
@@ -337,8 +347,9 @@ function computeStats(augmentIds) {
   };
 }
 
-function getMoveDelay(config, stats) {
-  return Math.max(config.minMoveDelayMs, config.baseMoveDelayMs / stats.speed);
+// Vitesse réelle d'un joueur, en cases par seconde.
+function getTilesPerSecond(config, stats) {
+  return Math.min(config.maxSpeed, config.baseSpeed * stats.speed);
 }
 
 // Positions de départ : les quatre coins de la zone de jeu.
@@ -653,7 +664,7 @@ function createPlayer(id, name) {
     stats: { ...BASE_STATS },
     hearts: BASE_STATS.maxHearts, // coeurs restants pendant la manche
     invincibleUntil: 0,
-    nextMoveAt: 0,
+    moving: false, // le joueur a avancé pendant le dernier tick
     input: { direction: null, bomb: false },
     augments: [], // augments choisis, conservés toute la partie
     augmentOffer: [], // augments proposés en phase « augment »
@@ -766,7 +777,7 @@ function startRound(draft) {
       stats,
       hearts: stats.maxHearts,
       invincibleUntil: 0,
-      nextMoveAt: draft.time,
+      moving: false,
       input: { direction: null, bomb: false },
       augmentOffer: [],
     });
@@ -859,7 +870,7 @@ function tick(state, deltaMs) {
   draft.time += deltaMs;
 
   placeRequestedBombs(draft);
-  movePlayers(draft);
+  movePlayers(draft, deltaMs);
   collectPowerUps(draft);
   explodeDueBombs(draft);
   removeExpiredFlames(draft);
@@ -874,17 +885,19 @@ function placeRequestedBombs(draft) {
     if (!player.input.bomb) continue;
     player.input.bomb = false;
 
+    // La bombe est posée sur la case où se trouve le centre du joueur.
+    const cell = getPlayerCell(player);
     const canPlace =
       player.alive &&
-      !getBombAt(draft, player.x, player.y) &&
+      !getBombAt(draft, cell.x, cell.y) &&
       countActiveBombs(draft, player.id) < player.stats.maxBombs;
     if (!canPlace) continue;
 
     const bomb = {
       id: nextId(draft, 'bomb'),
       ownerId: player.id,
-      x: player.x,
-      y: player.y,
+      x: cell.x,
+      y: cell.y,
       range: player.stats.bombRange,
       piercing: player.stats.piercing,
       explodeAt: draft.time + draft.config.bombFuseMs * player.stats.fuseMultiplier,
@@ -894,31 +907,123 @@ function placeRequestedBombs(draft) {
   }
 }
 
-// Le joueur avance d'une case dans la direction maintenue, si la case est
-// libre et si son délai de déplacement (lié à sa vitesse) est écoulé.
-// Un joueur posé sur sa propre bombe peut en sortir : seule la case
-// d'arrivée est vérifiée.
-function movePlayers(draft) {
+// Déplacement libre : le joueur avance en continu dans la direction
+// maintenue, de (vitesse × durée du tick) cases. Il est arrêté par les
+// murs, obstacles et bombes, qui occupent toute leur case, alors que le
+// joueur n'est qu'un carré de « hitboxSize » de côté.
+//
+// Le trajet est découpé en petits pas pour ne jamais traverser un mur,
+// même avec une grande vitesse ou un long tick.
+const MOVE_STEP = 0.05;
+// Tolérance des calculs : un contact plus fin que ça n'est pas une collision.
+// Elle doit rester plus grande que l'arrondi des positions (1e-4).
+const EPSILON = 1e-3;
+
+function movePlayers(draft, deltaMs) {
   for (const player of draft.players) {
     const direction = DIRECTIONS[player.input.direction];
+    player.moving = false;
     if (!player.alive || !direction) continue;
 
     player.facing = player.input.direction;
-    if (draft.time < player.nextMoveAt) continue;
+    const speed = getTilesPerSecond(draft.config, player.stats);
+    let remaining = (speed * deltaMs) / 1000;
 
-    const target = { x: player.x + direction.dx, y: player.y + direction.dy };
-    if (!isWalkable(draft, target.x, target.y)) continue;
+    while (remaining > EPSILON) {
+      const step = Math.min(MOVE_STEP, remaining);
+      remaining -= step;
+      if (!stepPlayer(draft, player, direction, step)) break;
+      player.moving = true;
+    }
 
-    player.x = target.x;
-    player.y = target.y;
-    player.nextMoveAt = draft.time + getMoveDelay(draft.config, player.stats);
+    player.x = roundPosition(player.x);
+    player.y = roundPosition(player.y);
   }
+}
+
+function roundPosition(value) {
+  return Math.round(value * 1e4) / 1e4;
+}
+
+// Cases recouvertes par le carré de collision d'un joueur centré en (x, y).
+// Une case (cx, cy) s'étend de cx - 0,5 à cx + 0,5.
+function getCoveredCells(x, y, half) {
+  const cells = [];
+  for (let cy = Math.round(y - half + EPSILON); cy <= Math.round(y + half - EPSILON); cy += 1) {
+    for (let cx = Math.round(x - half + EPSILON); cx <= Math.round(x + half - EPSILON); cx += 1) {
+      cells.push({ x: cx, y: cy });
+    }
+  }
+  return cells;
+}
+
+// Une case est libre si c'est une rue sans bombe. Les bombes que le joueur
+// recouvre déjà (celle qu'il vient de poser) ne le bloquent pas : il peut
+// en sortir, mais pas y revenir une fois qu'il l'a quittée.
+function isFreeCell(draft, x, y, ignoredBombs) {
+  if (getTile(draft, x, y) !== TILE.EMPTY) return false;
+  const bomb = getBombAt(draft, x, y);
+  return !bomb || ignoredBombs.has(bomb.id);
+}
+
+function collides(draft, x, y, half, ignoredBombs) {
+  return getCoveredCells(x, y, half).some((cell) => !isFreeCell(draft, cell.x, cell.y, ignoredBombs));
+}
+
+// Fait avancer le joueur de « step » cases au plus. Retourne false s'il n'a
+// pas pu bouger du tout.
+//
+// Quand il est bloqué, deux cas :
+// - aide aux virages : si la case devant lui, dans l'allée la plus proche,
+//   est libre et qu'il n'en est décalé que d'au plus « cornerAssist », il
+//   glisse vers le centre de cette allée (on n'a pas besoin d'être aligné
+//   au pixel près pour tourner dans une rue) ;
+// - sinon il avance jusqu'à toucher l'obstacle, puis s'arrête.
+function stepPlayer(draft, player, direction, step) {
+  const half = draft.config.hitboxSize / 2;
+  const axis = direction.dx !== 0 ? 'x' : 'y'; // axe du déplacement
+  const side = axis === 'x' ? 'y' : 'x'; // axe perpendiculaire
+  const sign = direction.dx + direction.dy; // +1 ou -1
+
+  const covered = getCoveredCells(player.x, player.y, half);
+  const ignoredBombs = new Set(
+    covered.map((cell) => getBombAt(draft, cell.x, cell.y)?.id).filter(Boolean),
+  );
+
+  const target = { x: player.x, y: player.y };
+  target[axis] += sign * step;
+  if (!collides(draft, target.x, target.y, half, ignoredBombs)) {
+    player[axis] = target[axis];
+    return true;
+  }
+
+  // Rangée (ou colonne) de cases contre laquelle le joueur bute.
+  const blockedLine = Math.round(target[axis] + sign * (half - EPSILON));
+  const lane = Math.round(player[side]);
+  const offset = player[side] - lane;
+  const frontCell = { [axis]: blockedLine, [side]: lane };
+
+  const canTurn =
+    Math.abs(offset) > EPSILON &&
+    Math.abs(offset) <= draft.config.cornerAssist &&
+    isFreeCell(draft, frontCell.x, frontCell.y, ignoredBombs);
+  if (canTurn) {
+    player[side] -= Math.sign(offset) * Math.min(step, Math.abs(offset));
+    return true;
+  }
+
+  // Avance jusqu'au contact de l'obstacle.
+  const contact = blockedLine - sign * (0.5 + half);
+  if (sign * (contact - player[axis]) <= EPSILON) return false;
+  player[axis] = contact;
+  return true;
 }
 
 function collectPowerUps(draft) {
   draft.players.forEach((player, index) => {
     if (!player.alive) return;
-    const powerUp = draft.powerUps.find((item) => samePosition(item, player));
+    const cell = getPlayerCell(player);
+    const powerUp = draft.powerUps.find((item) => samePosition(item, cell));
     if (!powerUp) return;
 
     draft.players[index] = POWER_UPS[powerUp.type].apply(player);
@@ -974,7 +1079,8 @@ function removeExpiredFlames(draft) {
 function damagePlayersInFlames(draft) {
   for (const player of draft.players) {
     if (!player.alive || draft.time < player.invincibleUntil) continue;
-    const flame = draft.flames.find((item) => samePosition(item, player));
+    const cell = getPlayerCell(player);
+    const flame = draft.flames.find((item) => samePosition(item, cell));
     if (flame) hitPlayer(draft, player, flame.ownerId);
   }
 }
@@ -1052,6 +1158,7 @@ export {
   getTile,
   getBombAt,
   isWalkable,
+  getPlayerCell,
   getExplosionCells,
   computeStats,
   getSpawnPositions,

@@ -12,7 +12,7 @@ import {
   getBombAt,
   getExplosionCells,
 } from '../../src/game/GameState.js';
-import { createStartedGame, advance, placeBomb, patchPlayer, eventsOfType } from './helpers.js';
+import { ONE_TILE_MS, createStartedGame, advance, placeBomb, patchPlayer, eventsOfType } from './helpers.js';
 
 const FUSE = DEFAULT_CONFIG.bombFuseMs;
 const FLAME = DEFAULT_CONFIG.flameDurationMs;
@@ -68,7 +68,7 @@ describe('poser une bombe', () => {
 
   it('limite le nombre de bombes posées en même temps', () => {
     let state = placeBomb(createStartedGame(), 'p1');
-    state = tick(setInput(state, 'p1', { direction: 'right' }), 50);
+    state = advance(setInput(state, 'p1', { direction: 'right' }), ONE_TILE_MS);
     state = placeBomb(state, 'p1');
 
     assert.equal(state.bombs.length, 1);
@@ -77,7 +77,7 @@ describe('poser une bombe', () => {
   it('autorise plusieurs bombes avec une réserve plus grande', () => {
     let state = withStats(createStartedGame(), 'p1', { maxBombs: 2 });
     state = placeBomb(state, 'p1');
-    state = tick(setInput(state, 'p1', { direction: 'right' }), 50);
+    state = advance(setInput(state, 'p1', { direction: 'right' }), ONE_TILE_MS);
     state = placeBomb(state, 'p1');
 
     assert.equal(state.bombs.length, 2);
@@ -172,7 +172,7 @@ describe('explosions', () => {
   it('déclenche les bombes touchées par une flamme (réaction en chaîne)', () => {
     let state = withStats(createStartedGame(), 'p1', { maxBombs: 2 });
     state = placeBomb(state, 'p1');
-    state = tick(setInput(state, 'p1', { direction: 'right' }), 50);
+    state = advance(setInput(state, 'p1', { direction: 'right' }), ONE_TILE_MS);
     state = placeBomb(state, 'p1');
     const secondExplodeAt = getBombAt(state, 2, 1).explodeAt;
     assert.ok(secondExplodeAt > FUSE);
@@ -220,7 +220,7 @@ describe('bonus', () => {
   function collect(type, prepare = (s) => s) {
     let state = prepare(createStartedGame());
     state = { ...state, powerUps: [{ id: 'powerUp-x', type, x: 2, y: 1 }] };
-    return tick(setInput(state, 'p1', { direction: 'right' }), 50);
+    return advance(setInput(state, 'p1', { direction: 'right' }), ONE_TILE_MS);
   }
 
   it('est ramassé en marchant dessus', () => {

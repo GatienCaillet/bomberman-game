@@ -149,9 +149,66 @@ function getPlayerSprite(player) {
     return sprite;
 }
 
+// ---------------------------------------------------------------------------
+// Lissage : le serveur envoie les positions toutes les 50 ms, l'écran se
+// redessine environ toutes les 16 ms. Pour éviter les saccades, chaque joueur
+// est affiché un peu dans le passé (INTERPOLATION_DELAY_MS), entre les deux
+// états reçus qui encadrent cet instant.
+// ---------------------------------------------------------------------------
+
+const INTERPOLATION_DELAY_MS = 70;
+const HISTORY_MS = 1000;
+// Au-delà de ce saut (en cases), le joueur est téléporté (nouvelle manche).
+const TELEPORT_DISTANCE = 1.5;
+
+// id du joueur -> [{ time, x, y }] (temps du serveur)
+const positionHistory = new Map();
+let lastGame = null;
+// heure locale à laquelle le dernier état est arrivé, et son temps serveur
+let clock = { serverTime: 0, localTime: 0 };
+
+function recordPositions(game) {
+    if (game === lastGame) return;
+    // une nouvelle partie repart de time = 0 : on oublie l'historique
+    if (lastGame && game.time < lastGame.time) positionHistory.clear();
+    lastGame = game;
+    clock = { serverTime: game.time, localTime: performance.now() };
+
+    for (const player of game.players) {
+        let samples = positionHistory.get(player.id);
+        if (!samples) {
+            samples = [];
+            positionHistory.set(player.id, samples);
+        }
+        const last = samples[samples.length - 1];
+        // en phase d'augment le temps n'avance plus : on remplace le dernier point
+        if (last && last.time === game.time) samples.pop();
+        samples.push({ time: game.time, x: player.x, y: player.y });
+        while (samples.length > 2 && samples[1].time < game.time - HISTORY_MS) samples.shift();
+    }
+}
+
+function getDisplayPosition(player) {
+    const samples = positionHistory.get(player.id);
+    if (!samples?.length) return { x: player.x, y: player.y };
+
+    const elapsed = performance.now() - clock.localTime;
+    const time = Math.min(clock.serverTime, clock.serverTime + elapsed - INTERPOLATION_DELAY_MS);
+
+    let next = samples.findIndex((sample) => sample.time >= time);
+    if (next === -1) next = samples.length - 1;
+    if (next === 0) return { x: samples[0].x, y: samples[0].y };
+
+    const a = samples[next - 1], b = samples[next];
+    if (Math.hypot(b.x - a.x, b.y - a.y) > TELEPORT_DISTANCE) return { x: b.x, y: b.y };
+    const ratio = Math.min(1, Math.max(0, (time - a.time) / (b.time - a.time)));
+    return { x: a.x + (b.x - a.x) * ratio, y: a.y + (b.y - a.y) * ratio };
+}
+
 // Choisit l'animation selon le personnage, la direction et le mouvement.
 function getAnimation(character, player) {
-    const moving = player.alive && player.input?.direction != null;
+    // « moving » vient du serveur : faux quand le joueur pousse contre un mur
+    const moving = player.alive && (player.moving ?? player.input?.direction != null);
     const sideways = player.facing === "left" || player.facing === "right";
 
     if (moving) {
@@ -187,15 +244,17 @@ function drawPlayers(game, myId) {
         }
 
         const invincible = game.time < player.invincibleUntil;
+        // (x, y) est le centre du personnage, en cases (décimales)
+        const { x, y } = getDisplayPosition(player);
         sprite.label.textContent = player.name;
         sprite.box.classList.toggle("me", player.id === myId);
         Object.assign(sprite.box.style, {
             display: player.alive ? "block" : "none",
             width: size + "px",
             height: size + "px",
-            // centré sur la case, les pieds sur le bas de la case
-            left: ((player.x + 0.5) * TILE_SIZE * scale - size / 2) + "px",
-            top: ((player.y + 1) * TILE_SIZE * scale - size) + "px",
+            // centré sur sa position, les pieds sur le bas de sa case
+            left: ((x + 0.5) * TILE_SIZE * scale - size / 2) + "px",
+            top: ((y + 1) * TILE_SIZE * scale - size) + "px",
             opacity: invincible && blink ? 0.35 : 1,
         });
         // les images de profil regardent vers la droite
@@ -215,6 +274,7 @@ function drawPlayers(game, myId) {
 export function drawGame(game, myId) {
     if (!game || !game.map.length) return;
 
+    recordPositions(game);
     resizeCanvas(game.config);
     // redimensionner le canvas réinitialise ce réglage
     ctx.imageSmoothingEnabled = false;
